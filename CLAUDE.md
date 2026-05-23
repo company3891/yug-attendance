@@ -46,50 +46,43 @@
    - テキスト・数値の変更依頼を受けたら、grep等で全文検索し変更漏れを**2度確認**してから完了報告
    - LP・サイト編集前に必ずバックアップファイルを作成（例：`ファイル名_backup_YYYYMMDD.html`）
 
-### Server Action 実装ルール（Phase 2 以降必須）
+### Server Action 規約（Phase 2 以降必須）
 
-1. **`lib/forms/parse.ts` の `parseFormData()` を必ず使う**
-   - 直接 `schema.parse()` を呼ぶことは禁止（throw して Runtime Error 画面に飛ぶ）
-   - 直接 `schema.safeParse()` を呼ぶことも非推奨（各アクションで毎回 fieldErrors 整形するのは無駄）
+以下は**例外なく遵守**。違反は code review で差し戻し対象。
 
-2. **戻り値は `ActionState<TFields>` 型で統一**
-   - `lib/forms/parse.ts` から import
-   - 成功時: `actionOk(message?)`
-   - 全体エラー: `actionFail(formError)`
-   - フィールドエラー: `{ ok: false, fieldErrors: parsed.fieldErrors }`
+1. **必ず `lib/forms/parse.ts` の `parseFormData()` を使用**
+2. **`parse()` ではなく `safeParse()` 経由**（`parseFormData` が内部で実施）
+3. **戻り値は `{ ok: true, data }` | `{ ok: false, fieldErrors }`**（`ActionState<TFields>` 型）
+4. **throw せず構造化エラーを返す**
+5. **新規追加用と編集用は別スキーマに分離**（`xxxCreateSchema` と `xxxUpdateSchema`、単発処理はさらに専用スキーマ）
 
-3. **スキーマは必ず 3 分離（CRUD ごと）**
-   - 新規作成 (`xxxCreateSchema`)
-   - 編集 (`xxxUpdateSchema`)
-   - 単発処理（パスワード変更、削除、承認など）はそれぞれ専用スキーマ
-   - 1 スキーマを使い回さない（disabled フィールドのバグ再発防止）
+#### 補足ルール
 
-4. **`<Input disabled>` は送信されない**
-   - 表示だけ残して送信もしないなら現状の `disabled` 表示でOK
-   - 表示は変更不可だが値を送りたいなら `<input type="hidden" name="..." value="..." />` を別途置く
-   - `readOnly` は送信されるが視覚的に編集不可
+- **`<Input disabled>` はフォーム送信されない** — 値を送る必要がない場合のみ disabled、送信しつつ編集不可なら `readOnly`、見せず送るだけなら `<input type="hidden">`
+- **フォーム側はフィールド直下にエラー表示** — `<ErrorMsg errors={fieldErrors.xxx} />` パターン
+- **formError は別ボックス** でフォーム上部 or 下部に表示
+- **成功時のヘルパー**: `actionOk(message?)` / 全体エラー: `actionFail(formError)`
 
-5. **フォームコンポーネントは fieldErrors を受けてフィールド直下に表示**
-   - `<ErrorMsg errors={fieldErrors.fieldName} />` パターンで統一
-   - formError は別ボックスでフォーム上部 or 下部に表示
+#### 雛形コード（コピペ用）
 
-6. **テンプレート**（コピペで Server Action を作る雛形）
-   ```typescript
-   'use server'
-   import { parseFormData, actionFail, actionOk, type ActionState } from '@/lib/forms/parse'
-   import { mySchema } from '@/lib/schemas/...'
+```typescript
+'use server'
+import { parseFormData, actionFail, actionOk, type ActionState } from '@/lib/forms/parse'
+import { requireRole } from '@/lib/auth/roles'
+import { mySchema } from '@/lib/schemas/...'
 
-   type MyState = ActionState<'field1' | 'field2' | ...>
+type MyState = ActionState<'field1' | 'field2' | ...>
 
-   export async function myAction(formData: FormData): Promise<MyState> {
-     await requireRole('admin')  // 権限チェック
-     const parsed = parseFormData(mySchema, formData)
-     if (!parsed.ok) return { ok: false, fieldErrors: parsed.fieldErrors }
-     // ... DB 操作
-     if (error) return actionFail(error.message)
-     return actionOk('完了しました')
-   }
-   ```
+export async function myAction(formData: FormData): Promise<MyState> {
+  await requireRole('admin')                          // 権限チェック
+  const parsed = parseFormData(mySchema, formData)    // safeParse 内蔵
+  if (!parsed.ok) return { ok: false, fieldErrors: parsed.fieldErrors }
+  // parsed.data は z.infer<typeof mySchema> 型
+  // ... DB 操作
+  if (error) return actionFail(error.message)
+  return actionOk('完了しました')
+}
+```
 
 ### デザイン
 1. **メインカラー**: ティファニーブルー `#0ABAB5`
