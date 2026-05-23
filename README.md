@@ -63,14 +63,21 @@ npm install
    supabase login
    supabase link --project-ref <PROJECT_REF>
    ```
-5. マイグレーション適用（`supabase/migrations/0001_initial_schema.sql` と `0002_rls_policies.sql` が走る）
+5. マイグレーション適用（`supabase/migrations/` 配下が順に走る）
    ```bash
    npm run db:push
    ```
-6. Seed データ投入
+6. Seed データ投入（2 ステップ）
    ```bash
-   # Supabase ダッシュボードの SQL Editor に supabase/seed.sql の内容を貼り付けて実行
-   # （ローカル開発時は npm run db:reset で適用）
+   # (a) 静的参照データ（会社・店舗・部門・シフトパターン）
+   #     ローカル開発時:
+   npm run db:reset
+   #     本番Supabase:
+   #     Dashboard > SQL Editor に supabase/seed.sql を貼って Run
+
+   # (b) 4 テストユーザーを Auth Admin API 経由で作成
+   #     ※ auth.users への直接 INSERT は使えないため必ず Node 経由
+   npm run db:seed-users
    ```
 
 ### 3. 環境変数
@@ -88,6 +95,25 @@ SUPABASE_SERVICE_ROLE_KEY=...
 ```bash
 npm run dev
 # → http://localhost:3000
+```
+
+> **重要**: `npm run dev` を実行したウィンドウを **閉じないでください**。閉じるとサーバーも止まります。
+
+### サーバーが止まった時の対処
+
+**ワンクリック復旧**: エクスプローラーで `scripts/dev-start.cmd` をダブルクリック。
+新しい黒いウィンドウが開いてサーバーが起動します（このウィンドウは閉じないこと）。
+
+**コマンドで復旧**:
+```bash
+npm run dev:restart
+```
+
+**手動で復旧**:
+```powershell
+Get-Process -Name node -ErrorAction SilentlyContinue | Stop-Process -Force
+cd "C:\Users\yusug\Dropbox (個人用) (1)\02 株式会社YUG\yug-attendance"
+npm run dev
 ```
 
 ### 5. 型生成（マイグレーション変更時）
@@ -127,6 +153,16 @@ npm run db:types
 3. 動作確認手順をREADMEに追記
 4. git commit
 5. ユーザーレビュー承認後に次Phaseへ
+
+### ⚠️ `npm run build` のあとに `npm run dev` に戻すとき
+
+`npm run build` は `.next/` に production 用チャンクを書き込みます。その状態で dev サーバーを起動すると **MODULE_NOT_FOUND で 500 エラー** になります。dev 復帰時は `.next/` を削除してから起動してください。
+
+```powershell
+# 例: Windows PowerShell
+Remove-Item -LiteralPath .next -Recurse -Force
+npm run dev
+```
 
 ### よく使うコマンド
 

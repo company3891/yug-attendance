@@ -3,8 +3,10 @@ import { requireRole } from '@/lib/auth/roles'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { AppNav } from '@/components/app-nav'
 import type { AppUser } from '@/lib/database.types'
+import type { UserActionState } from '@/lib/schemas/user'
 import { UserForm } from '../user-form'
-import { updateUserAction } from '../actions'
+import { PasswordForm } from '../password-form'
+import { changePasswordAction, updateUserAction } from '../actions'
 
 export default async function EditUserPage({ params }: { params: { id: string } }) {
   const me = await requireRole('admin')
@@ -25,38 +27,45 @@ export default async function EditUserPage({ params }: { params: { id: string } 
     supabase.from('departments').select('id, name, store_id'),
   ])
 
-  const boundAction = updateUserAction.bind(null, params.id) as (fd: FormData) => Promise<{ error: string } | void>
+  const boundUpdate = updateUserAction.bind(null, params.id) as (
+    fd: FormData,
+  ) => Promise<UserActionState>
+  const boundPassword = changePasswordAction.bind(null, params.id) as (
+    fd: FormData,
+  ) => Promise<UserActionState>
 
   return (
     <>
       <AppNav user={me} />
       <main className="px-4 py-8 sm:px-6 lg:px-8 md:ml-64">
-        <div className="mx-auto max-w-3xl">
-        <h1 className="mb-6 text-2xl font-semibold text-tiffany-700">従業員を編集</h1>
-        <UserForm
-          mode="edit"
-          action={boundAction}
-          companies={companies ?? []}
-          stores={stores ?? []}
-          departments={departments ?? []}
-          currentUserRole={me.role}
-          defaults={{
-            email,
-            name: user.name,
-            name_kana: user.name_kana ?? '',
-            employee_no: user.employee_no ?? '',
-            role: user.role,
-            job_title: user.job_title ?? '',
-            employment_type: user.employment_type ?? '',
-            hire_date: user.hire_date ?? '',
-            wage_type: (user.wage_type as 'hourly' | 'monthly' | 'daily' | null) ?? '',
-            hourly_wage: user.hourly_wage ?? '',
-            is_active: user.is_active,
-            company_id: user.company_id ?? '',
-            store_id: user.store_id ?? '',
-            department_id: user.department_id ?? '',
-          }}
-        />
+        <div className="mx-auto max-w-3xl space-y-6">
+          <h1 className="text-2xl font-semibold text-tiffany-700">従業員を編集</h1>
+          <UserForm
+            mode="edit"
+            action={boundUpdate}
+            companies={companies ?? []}
+            stores={stores ?? []}
+            departments={departments ?? []}
+            currentUserRole={me.role}
+            defaults={{
+              email,
+              name: user.name,
+              name_kana: user.name_kana ?? '',
+              employee_no: user.employee_no ?? '',
+              role: user.role,
+              job_title: user.job_title ?? '',
+              employment_type: user.employment_type ?? '',
+              hire_date: user.hire_date ?? '',
+              wage_type: (user.wage_type as 'hourly' | 'monthly' | 'daily' | null) ?? '',
+              hourly_wage: user.hourly_wage ?? '',
+              is_active: user.is_active,
+              company_id: user.company_id ?? '',
+              store_id: user.store_id ?? '',
+              department_id: user.department_id ?? '',
+            }}
+          />
+
+          <PasswordForm action={boundPassword} />
         </div>
       </main>
     </>

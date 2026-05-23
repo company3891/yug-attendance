@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
+import type { UserActionState } from '@/lib/schemas/user'
 
 export interface UserFormDefaults {
   email?: string
@@ -23,6 +24,17 @@ export interface UserFormDefaults {
   department_id?: string
 }
 
+type FieldErrors = Record<string, string[] | undefined>
+
+function ErrorMsg({ errors }: { errors?: string[] }) {
+  if (!errors || errors.length === 0) return null
+  return (
+    <p role="alert" className="mt-1 text-xs text-destructive">
+      {errors.join(' / ')}
+    </p>
+  )
+}
+
 export function UserForm({
   action,
   defaults,
@@ -32,7 +44,7 @@ export function UserForm({
   departments,
   currentUserRole,
 }: {
-  action: (formData: FormData) => Promise<{ error: string } | void>
+  action: (formData: FormData) => Promise<UserActionState>
   defaults?: UserFormDefaults
   mode: 'create' | 'edit'
   companies: { id: string; name: string }[]
@@ -41,46 +53,85 @@ export function UserForm({
   currentUserRole: 'master' | 'store' | 'admin' | 'employee'
 }) {
   const [isPending, startTransition] = useTransition()
-  const [error, setError] = useState<string | null>(null)
+  const [formError, setFormError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    setError(null)
+    setFormError(null)
+    setFieldErrors({})
     const formData = new FormData(e.currentTarget)
     startTransition(async () => {
       const result = await action(formData)
-      if (result?.error) setError(result.error)
+      if (result && 'ok' in result && !result.ok) {
+        if (result.formError) setFormError(result.formError)
+        if (result.fieldErrors) setFieldErrors(result.fieldErrors as FieldErrors)
+      }
     })
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-6" noValidate>
       <section className="grid gap-4 md:grid-cols-2">
-        <h2 className="md:col-span-2 text-lg font-semibold text-tiffany-700">基本情報</h2>
+        <h2 className="text-lg font-semibold text-tiffany-700 md:col-span-2">基本情報</h2>
+
         <div className="space-y-2">
-          <Label htmlFor="email">メールアドレス（ログインID） *</Label>
-          <Input id="email" name="email" type="email" required defaultValue={defaults?.email} disabled={mode === 'edit'} />
+          <Label htmlFor="email">
+            メールアドレス（ログインID）{mode === 'create' && ' *'}
+          </Label>
+          {mode === 'create' ? (
+            <Input id="email" name="email" type="email" required defaultValue={defaults?.email} />
+          ) : (
+            // 編集時は変更不可（送信もしない）。表示だけのために readonly + hidden input は出さない
+            <Input
+              id="email"
+              type="email"
+              value={defaults?.email ?? ''}
+              readOnly
+              disabled
+              aria-label="メールアドレス（変更不可）"
+            />
+          )}
+          <ErrorMsg errors={fieldErrors.email} />
+          {mode === 'edit' && (
+            <p className="text-xs text-muted-foreground">
+              メールアドレスは変更できません。
+            </p>
+          )}
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="password">パスワード {mode === 'create' ? '*' : '（変更時のみ入力）'}</Label>
-          <Input id="password" name="password" type="password" minLength={8} />
-        </div>
+
+        {mode === 'create' && (
+          <div className="space-y-2">
+            <Label htmlFor="password">パスワード *</Label>
+            <Input id="password" name="password" type="password" minLength={8} required />
+            <ErrorMsg errors={fieldErrors.password} />
+          </div>
+        )}
+
         <div className="space-y-2">
           <Label htmlFor="name">氏名 *</Label>
           <Input id="name" name="name" required defaultValue={defaults?.name} />
+          <ErrorMsg errors={fieldErrors.name} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="name_kana">氏名カナ</Label>
           <Input id="name_kana" name="name_kana" defaultValue={defaults?.name_kana} />
+          <ErrorMsg errors={fieldErrors.name_kana} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="employee_no">従業員ナンバー</Label>
-          <Input id="employee_no" name="employee_no" defaultValue={defaults?.employee_no} placeholder="自動採番OK" />
+          <Input
+            id="employee_no"
+            name="employee_no"
+            defaultValue={defaults?.employee_no}
+            placeholder="自動採番OK"
+          />
+          <ErrorMsg errors={fieldErrors.employee_no} />
         </div>
       </section>
 
       <section className="grid gap-4 md:grid-cols-2">
-        <h2 className="md:col-span-2 text-lg font-semibold text-tiffany-700">権限・所属</h2>
+        <h2 className="text-lg font-semibold text-tiffany-700 md:col-span-2">権限・所属</h2>
         <div className="space-y-2">
           <Label htmlFor="role">権限レベル *</Label>
           <Select id="role" name="role" required defaultValue={defaults?.role ?? 'employee'}>
@@ -91,6 +142,7 @@ export function UserForm({
             <option value="admin">部門管理者</option>
             <option value="employee">従業員</option>
           </Select>
+          <ErrorMsg errors={fieldErrors.role} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="company_id">会社</Label>
@@ -102,6 +154,7 @@ export function UserForm({
               </option>
             ))}
           </Select>
+          <ErrorMsg errors={fieldErrors.company_id} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="store_id">店舗</Label>
@@ -113,6 +166,7 @@ export function UserForm({
               </option>
             ))}
           </Select>
+          <ErrorMsg errors={fieldErrors.store_id} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="department_id">部門</Label>
@@ -124,10 +178,17 @@ export function UserForm({
               </option>
             ))}
           </Select>
+          <ErrorMsg errors={fieldErrors.department_id} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="job_title">役職・業務</Label>
-          <Input id="job_title" name="job_title" defaultValue={defaults?.job_title} placeholder="店長 / ホール など" />
+          <Input
+            id="job_title"
+            name="job_title"
+            defaultValue={defaults?.job_title}
+            placeholder="店長 / ホール など"
+          />
+          <ErrorMsg errors={fieldErrors.job_title} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="employment_type">雇用形態</Label>
@@ -139,15 +200,17 @@ export function UserForm({
             <option value="アルバイト">アルバイト</option>
             <option value="業務委託">業務委託</option>
           </Select>
+          <ErrorMsg errors={fieldErrors.employment_type} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="hire_date">入社日</Label>
           <Input id="hire_date" name="hire_date" type="date" defaultValue={defaults?.hire_date} />
+          <ErrorMsg errors={fieldErrors.hire_date} />
         </div>
       </section>
 
       <section className="grid gap-4 md:grid-cols-2">
-        <h2 className="md:col-span-2 text-lg font-semibold text-tiffany-700">給与（簡易）</h2>
+        <h2 className="text-lg font-semibold text-tiffany-700 md:col-span-2">給与（簡易）</h2>
         <div className="space-y-2">
           <Label htmlFor="wage_type">給与種別</Label>
           <Select id="wage_type" name="wage_type" defaultValue={defaults?.wage_type ?? ''}>
@@ -156,10 +219,18 @@ export function UserForm({
             <option value="monthly">月給</option>
             <option value="daily">日給</option>
           </Select>
+          <ErrorMsg errors={fieldErrors.wage_type} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="hourly_wage">時給（円）</Label>
-          <Input id="hourly_wage" name="hourly_wage" type="number" min={0} defaultValue={defaults?.hourly_wage} />
+          <Input
+            id="hourly_wage"
+            name="hourly_wage"
+            type="number"
+            min={0}
+            defaultValue={defaults?.hourly_wage}
+          />
+          <ErrorMsg errors={fieldErrors.hourly_wage} />
         </div>
       </section>
 
@@ -174,10 +245,10 @@ export function UserForm({
         <Label htmlFor="is_active">有効（オフにすると無効化）</Label>
       </section>
 
-      {error && (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
+      {formError && (
+        <div role="alert" className="rounded-lg border border-destructive bg-destructive/5 p-3 text-sm text-destructive">
+          {formError}
+        </div>
       )}
 
       <div className="flex gap-2">

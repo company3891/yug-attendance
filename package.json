@@ -12,7 +12,9 @@
     "db:push": "supabase db push",
     "db:reset": "supabase db reset",
     "db:types": "supabase gen types typescript --linked > lib/database.types.ts",
-    "backup": "powershell -ExecutionPolicy Bypass -File scripts/phase-backup.ps1"
+    "db:seed-users": "node scripts/seed-users.mjs",
+    "backup": "powershell -ExecutionPolicy Bypass -File scripts/phase-backup.ps1",
+    "dev:restart": "powershell -ExecutionPolicy Bypass -File scripts/dev-restart.ps1"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
