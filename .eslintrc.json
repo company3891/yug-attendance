@@ -1,0 +1,12 @@
+{
+  "extends": ["next/core-web-vitals", "prettier"],
+  "rules": {
+    "no-restricted-syntax": [
+      "warn",
+      {
+        "selector": "JSXText[value=/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+/]",
+        "message": "メールアドレスを HTML に平文で書かないでください。<MailLink /> を使用してください。"
+      }
+    ]
+  }
+}
