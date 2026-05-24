@@ -48,5 +48,9 @@ next-env.d.ts
 .next-dev.log
 .next-dev.err.log
 
+# PM2 ログ
+.pm2-out.log
+.pm2-err.log
+
 # backups (大きいので除外、必要なら別途同期)
 /backups/
