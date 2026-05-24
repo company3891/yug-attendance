@@ -5,6 +5,7 @@ import { AppNav } from '@/components/app-nav'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { AppUser } from '@/lib/database.types'
+import { UserCard } from '@/components/users/user-card'
 import { activateUserAction, deactivateUserAction } from './actions'
 
 type UserRow = Pick<
@@ -67,7 +68,9 @@ export default async function UsersListPage() {
           </CardHeader>
           <CardContent>
             {error && <p className="text-sm text-destructive">{error.message}</p>}
-            <div className="overflow-x-auto">
+
+            {/* ▼ デスクトップ: テーブル（md以上） */}
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b text-left text-muted-foreground">
@@ -90,9 +93,13 @@ export default async function UsersListPage() {
                       <td className="py-2 pr-4">{u.employment_type ?? '-'}</td>
                       <td className="py-2 pr-4">
                         {u.is_active ? (
-                          <span className="rounded-full bg-tiffany-100 px-2 py-0.5 text-xs text-tiffany-700">有効</span>
+                          <span className="rounded-full bg-tiffany-100 px-2 py-0.5 text-xs text-tiffany-700">
+                            有効
+                          </span>
                         ) : (
-                          <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">無効</span>
+                          <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                            無効
+                          </span>
                         )}
                       </td>
                       <td className="py-2 pr-4 text-right">
@@ -121,6 +128,21 @@ export default async function UsersListPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            {/* ▼ モバイル: カード型リスト（md未満） */}
+            <div className="space-y-3 md:hidden">
+              {users.length === 0 && (
+                <p className="text-sm text-muted-foreground">該当する従業員がいません。</p>
+              )}
+              {users.map((u) => (
+                <UserCard
+                  key={u.id}
+                  user={u}
+                  deactivateAction={deactivateUserAction}
+                  activateAction={activateUserAction}
+                />
+              ))}
             </div>
           </CardContent>
         </Card>

@@ -92,6 +92,39 @@ export async function myAction(formData: FormData): Promise<MyState> {
 5. **角丸**: `rounded-xl` 基調
 6. ダークモード対応必須
 
+### レスポンシブ規約
+
+**ブレークポイント**: Tailwind 標準（`sm:640px / md:768px / lg:1024px / xl:1280px`）。
+分岐の主軸は **`md` (768px)** — これより下をモバイル、上をデスクトップとして扱う。
+
+1. **データテーブルは必ずモバイル時にカード化**
+   - `md未満` で `<table>` を縦長表示にしない（文字が縦書きになる）
+   - パターン:
+     ```tsx
+     <div className="hidden md:block">{/* デスクトップ: <table> */}</div>
+     <div className="md:hidden space-y-3">{/* モバイル: <UserCard /> など */}</div>
+     ```
+   - カードコンポーネントは `components/<domain>/<entity>-card.tsx` に配置
+   - 例: `components/users/user-card.tsx`、`components/attendances/attendance-card.tsx` (Phase 4)
+
+2. **モバイルカードの最低構造**
+   - 上部: 主要識別子（氏名・日付など）+ 状態バッジ（右寄せ）
+   - 中段: `dl` で `grid-cols-[80px_1fr]` のラベル+値2カラム
+   - 下部: 操作ボタン（`flex gap-2`、各ボタン `flex-1` で幅を等分、タップ44px以上確保）
+   - 枠: `rounded-xl border border-tiffany-100 p-4 shadow-sm`
+
+3. **共通化の判断基準**
+   - 1画面だけなら専用コンポーネントで OK
+   - **3画面目が現れた時点で `components/ui/responsive-table.tsx` 等に抽出**
+   - 過剰抽象化を避ける（最初から汎用化しない）
+
+4. **必須レスポンシブチェックリスト**（新規画面追加時）
+   - [ ] iPhone SE (375px) 幅で横スクロールが発生しない
+   - [ ] ナビゲーション/サイドバーがモバイルで隠れる（ハンバーガー等）
+   - [ ] ボタンのタップエリア 44×44px 以上
+   - [ ] 入力フォームは1カラム化（`md:grid-cols-2` で2カラム）
+   - [ ] テーブルがあればカード版を実装
+
 ---
 
 ## 技術スタック
