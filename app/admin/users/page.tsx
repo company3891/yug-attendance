@@ -4,7 +4,21 @@ import { createClient } from '@/lib/supabase/server'
 import { AppNav } from '@/components/app-nav'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import type { AppUser } from '@/lib/database.types'
 import { activateUserAction, deactivateUserAction } from './actions'
+
+type UserRow = Pick<
+  AppUser,
+  | 'id'
+  | 'employee_no'
+  | 'name'
+  | 'role'
+  | 'job_title'
+  | 'employment_type'
+  | 'is_active'
+  | 'store_id'
+  | 'department_id'
+>
 
 const ROLE_LABEL: Record<string, string> = {
   master: 'マスター',
@@ -30,7 +44,8 @@ export default async function UsersListPage() {
     query = query.eq('department_id', me.department_id)
   }
 
-  const { data: users, error } = await query
+  const { data: rows, error } = await query
+  const users = (rows ?? []) as UserRow[]
 
   return (
     <>
@@ -48,7 +63,7 @@ export default async function UsersListPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>従業員一覧（{users?.length ?? 0}名）</CardTitle>
+            <CardTitle>従業員一覧（{users.length}名）</CardTitle>
           </CardHeader>
           <CardContent>
             {error && <p className="text-sm text-destructive">{error.message}</p>}
@@ -66,7 +81,7 @@ export default async function UsersListPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {users?.map((u) => (
+                  {users.map((u) => (
                     <tr key={u.id} className="border-b last:border-0">
                       <td className="py-2 pr-4 font-mono text-xs">{u.employee_no ?? '-'}</td>
                       <td className="py-2 pr-4 font-medium">{u.name}</td>

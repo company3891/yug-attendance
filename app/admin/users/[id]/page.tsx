@@ -58,6 +58,8 @@ export default async function EditUserPage({ params }: { params: { id: string } 
               hire_date: user.hire_date ?? '',
               wage_type: (user.wage_type as 'hourly' | 'monthly' | 'daily' | null) ?? '',
               hourly_wage: user.hourly_wage ?? '',
+              monthly_wage: user.monthly_wage ?? '',
+              daily_wage: user.daily_wage ?? '',
               is_active: user.is_active,
               company_id: user.company_id ?? '',
               store_id: user.store_id ?? '',
