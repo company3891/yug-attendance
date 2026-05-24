@@ -28,7 +28,12 @@ export async function middleware(request: NextRequest) {
 
   // ロール取得（middleware からの軽量クエリ）
   const { data: profile } = await supabase.from('users').select('role').eq('id', user.id).single()
-  const role = profile?.role as 'master' | 'store' | 'admin' | 'employee' | undefined
+  const role = (profile as { role?: string } | null)?.role as
+    | 'master'
+    | 'store'
+    | 'admin'
+    | 'employee'
+    | undefined
 
   if (MASTER_ONLY.some((p) => pathname.startsWith(p)) && role !== 'master') {
     return NextResponse.redirect(new URL('/dashboard', request.url))

@@ -2,11 +2,13 @@ import { requireRole } from '@/lib/auth/roles'
 import { createClient } from '@/lib/supabase/server'
 import { AppNav } from '@/components/app-nav'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import type { Company } from '@/lib/database.types'
 
 export default async function CompaniesPage() {
   const me = await requireRole('master')
   const supabase = createClient()
-  const { data: companies } = await supabase.from('companies').select('*')
+  const { data } = await supabase.from('companies').select('*')
+  const companies = (data ?? []) as Company[]
   return (
     <>
       <AppNav user={me} />
@@ -18,7 +20,7 @@ export default async function CompaniesPage() {
           </CardHeader>
           <CardContent>
             <ul className="space-y-2 text-sm">
-              {companies?.map((c) => (
+              {companies.map((c) => (
                 <li key={c.id} className="rounded-lg border p-3">
                   <div className="font-medium">{c.name}</div>
                   {c.representative_name && (

@@ -16,15 +16,23 @@ major_version = 15
 enabled = true
 port = 54323
 
+# ----------------------------------------------------------------------------
+# Auth (Supabase CLI v2.x 互換形式)
+# - 旧: [auth] enable_signup / enable_confirmations
+# - 新: [auth] enable_signup / [auth.email] enable_confirmations
+# ----------------------------------------------------------------------------
 [auth]
 enabled = true
 site_url = "http://localhost:3000"
 additional_redirect_urls = ["http://localhost:3000"]
 jwt_expiry = 3600
-enable_signup = false  # 招待制（マスターのみが登録可）
-enable_confirmations = false
+enable_signup = false  # 招待制（マスターが既存ユーザーから作成）
 
 [auth.email]
 enable_signup = false
 double_confirm_changes = true
-enable_confirmations = false
+enable_confirmations = true   # 本番では true 推奨（Email 確認必須）
+secure_password_change = false
+max_frequency = "1m0s"
+otp_length = 8
+otp_expiry = 3600
