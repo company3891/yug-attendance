@@ -92,6 +92,52 @@ export async function myAction(formData: FormData): Promise<MyState> {
 5. **角丸**: `rounded-xl` 基調
 6. ダークモード対応必須
 
+### 労働時間計算の規約（Phase 2 以降必須）
+
+| 区分 | 割増率 | 計算先カラム |
+|---|---|---|
+| **法定休日**（週1回・通常 日曜）労働 | **35%** | `work_time_calculations.holiday_minutes` |
+| **所定休日**（週休2日制の土曜等）労働 | 25% | `over_scheduled_minutes` に集約 |
+| **深夜（22:00-5:00）** | 25% | `midnight_minutes`（休日労働と重複可能）|
+| **法定外労働**（日8h超 / 週40h超）| 25% | `over_legal_minutes` |
+| **所定外労働**（店舗所定時間超）| 0% (基本給) | `over_scheduled_minutes` |
+
+**重要原則**:
+- 法定休日と所定休日を区別する（前者のみ 35%、後者は所定外扱い）
+- 深夜割増は **他の割増と重複加算可**（深夜の休日労働 = 35% + 25%）
+- 計算ロジックは `lib/workTime.ts` の純関数に集約、Date 入出力のみ
+- 日付またぎ判定は `stores.day_start_time` を基準（飲食店の深夜営業対応）
+
+### タイムゾーン処理規約（Phase 2 以降必須）
+
+| 層 | タイムゾーン | 理由 |
+|---|---|---|
+| **DB (PostgreSQL)** | **UTC** で保存（`timestamptz` 型）| Supabase 既定。グローバル運用時の混乱を避ける |
+| **計算ロジック (`lib/workTime.ts`)** | **JST固定** で扱う | 日本国内の労働基準法準拠。「22:00-05:00」はJST解釈 |
+| **UI 表示** | **JST固定** | ユーザーは日本国内 |
+| **テスト (vitest)** | **TZ=Asia/Tokyo 環境変数で固定** | CI/開発環境で同じ結果を保証 |
+
+**実装ルール**:
+- 日時の生成は `new Date('2026-05-23T09:00:00+09:00')` で **必ず JST オフセット明示**
+- DB → TS 変換時は Supabase クライアントが自動で `Date` (UTC内部) に変換
+- 表示時は `toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })` または `date-fns-tz`
+- vitest 実行時は `TZ=Asia/Tokyo npm test` の形式（CI ワークフローも同じ）
+- `Date.getHours()` 等のローカルメソッドは **PC のローカルTZに依存** するので注意。テストで TZ=Asia/Tokyo を固定すれば JST 動作
+
+**禁止事項**:
+- `new Date('2026-05-23')` のような **オフセットなし日付文字列** は環境依存 → 必ず `T00:00:00+09:00` まで書く
+- DB に `timestamp` (タイムゾーンなし) 型を使わない → 必ず `timestamptz`
+- フロントエンドで `moment.js` 等の重量ライブラリは使わない（軽量な date-fns 系を推奨）
+
+### 打刻データの異常検知
+
+`attendances` テーブルに `has_anomaly boolean` + `anomaly_reason text` を持つ。
+以下の場合に `has_anomaly = true` を立て、管理者画面でハイライト表示する。
+
+- 退勤時刻 < 出勤時刻（API は 422 で拒否、修正時のみ DB に anomaly として残る）
+- 休憩時間 > 実労働時間（laborMinutes を 0 にクランプ、警告ログ）
+- 連続勤務 24 時間超
+
 ### レスポンシブ規約
 
 **ブレークポイント**: Tailwind 標準（`sm:640px / md:768px / lg:1024px / xl:1280px`）。
