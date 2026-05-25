@@ -302,8 +302,8 @@ vercel --prod
 4. 各Phase完了時にコミット（メッセージは明確に）
 
 ### 現在のPhase進捗（更新していくこと）
-- [x] Phase 1: Supabase設定 + 認証 + 権限制御 + 従業員CRUD（実装・ビルド・ログイン疎通完了。実機UI最終確認中）
-- [ ] Phase 2: QR打刻 + 労働時間計算 + 自分の勤怠画面
+- [x] Phase 1: Supabase設定 + 認証 + 権限制御 + 従業員CRUD（タグ: v0.1.0-phase1-complete）
+- [x] Phase 2: QR打刻 + 労働時間計算 + 自分の勤怠画面（純関数100%テスト、API構造化エラー、タブレット最適化、QR管理/印刷/失効）
 - [ ] Phase 3: 顔認証打刻（face-api.js統合）
 - [ ] Phase 4: 打刻修正・管理者画面・レポートCSV
 - [ ] Phase 5: 有給管理 + Slack/LINE通知Cron
