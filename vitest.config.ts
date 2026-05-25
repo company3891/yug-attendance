@@ -13,7 +13,7 @@ export default defineConfig({
       // （未テストファイルを include すると閾値が誤判定される）
       include: [
         'lib/workTime.ts',
-        // 'lib/clockRounding.ts',   // Step 3 で追加
+        'lib/clockRounding.ts',
         // 'lib/qr/**/*.ts',         // Step 5-6 で追加
         // 'lib/forms/parse.ts',     // テスト追加時に有効化
       ],
