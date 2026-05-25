@@ -25,7 +25,6 @@ export const ERROR_CODES = {
   QR_INVALID_SIGNATURE: 'QRコードの署名が一致しません。再発行を依頼してください。',
   QR_REVOKED: 'このQRコードは失効しています。新しいQRコードを管理者から受け取ってください。',
   QR_VERSION_MISMATCH: '古いバージョンのQRコードです。最新のQRコードを使用してください。',
-  QR_EXPIRED: 'このQRコードは有効期限切れです（推奨3年）。新しいQRコードを発行してください。',
 
   // ユーザー・店舗関連
   USER_NOT_FOUND: '従業員が見つかりません。',

@@ -12,6 +12,7 @@ import {
   verifyQrSignature,
   verifyBusinessRules,
   verifyQr,
+  isQrUpdateRecommended,
   type UserSnapshot,
   type StoreSnapshot,
 } from './verifier'
@@ -130,34 +131,25 @@ describe('verifyQrSignature', () => {
 // ビジネス検証
 // ─────────────────────────────────────────
 describe('verifyBusinessRules', () => {
-  const now = new Date('2026-06-01T00:00:00+09:00')
-
   it('全条件OK → ok', () => {
-    const r = verifyBusinessRules(payload, baseUser, baseStore, { now })
+    const r = verifyBusinessRules(payload, baseUser, baseStore)
     expect(r.ok).toBe(true)
   })
 
   it('user が null → USER_NOT_FOUND', () => {
-    const r = verifyBusinessRules(payload, null, baseStore, { now })
+    const r = verifyBusinessRules(payload, null, baseStore)
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.code).toBe('USER_NOT_FOUND')
   })
 
   it('user.id 不一致 → USER_NOT_FOUND', () => {
-    const r = verifyBusinessRules(
-      payload,
-      { ...baseUser, id: 'different-uuid' },
-      baseStore,
-      { now },
-    )
+    const r = verifyBusinessRules(payload, { ...baseUser, id: 'different-uuid' }, baseStore)
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.code).toBe('USER_NOT_FOUND')
   })
 
   it('is_active=false → USER_INACTIVE', () => {
-    const r = verifyBusinessRules(payload, { ...baseUser, is_active: false }, baseStore, {
-      now,
-    })
+    const r = verifyBusinessRules(payload, { ...baseUser, is_active: false }, baseStore)
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.code).toBe('USER_INACTIVE')
   })
@@ -167,19 +159,16 @@ describe('verifyBusinessRules', () => {
       payload,
       { ...baseUser, store_id: 'other-store-id' },
       baseStore,
-      { now },
     )
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.code).toBe('STORE_MISMATCH')
   })
 
   it('打刻端末の store と payload.store 不一致 → STORE_MISMATCH', () => {
-    const r = verifyBusinessRules(
-      payload,
-      baseUser,
-      { id: 'other-store-id', qr_secret: QR_SECRET },
-      { now },
-    )
+    const r = verifyBusinessRules(payload, baseUser, {
+      id: 'other-store-id',
+      qr_secret: QR_SECRET,
+    })
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.code).toBe('STORE_MISMATCH')
   })
@@ -189,29 +178,58 @@ describe('verifyBusinessRules', () => {
       payload,
       { ...baseUser, qr_revoked_at: '2026-05-25T10:00:00Z' },
       baseStore,
-      { now },
     )
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.code).toBe('QR_REVOKED')
   })
 
   it('qr_version が古い (payload=1, user=2) → QR_VERSION_MISMATCH', () => {
-    const r = verifyBusinessRules(
-      payload, // qr_version: 1
-      { ...baseUser, qr_version: 2 },
-      baseStore,
-      { now },
-    )
+    const r = verifyBusinessRules(payload, { ...baseUser, qr_version: 2 }, baseStore)
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.code).toBe('QR_VERSION_MISMATCH')
   })
 
-  it('issued_at から 3年超 → QR_EXPIRED', () => {
-    const r = verifyBusinessRules(payload, baseUser, baseStore, {
-      now: new Date('2030-06-01T00:00:00+09:00'),
-    })
-    expect(r.ok).toBe(false)
-    if (!r.ok) expect(r.code).toBe('QR_EXPIRED')
+  it('3年超でも打刻可（ハード期限なし、警告のみ）', () => {
+    // 案C: QR_EXPIRED は廃止、isQrUpdateRecommended で警告表示する運用
+    const r = verifyBusinessRules(payload, baseUser, baseStore)
+    expect(r.ok).toBe(true)
+  })
+})
+
+describe('isQrUpdateRecommended (警告バッジ判定)', () => {
+  it('qr_issued_at = null → false (未発行)', () => {
+    expect(isQrUpdateRecommended(null)).toBe(false)
+  })
+
+  it('発行直後 → false', () => {
+    expect(
+      isQrUpdateRecommended('2026-05-01T00:00:00Z', { now: new Date('2026-05-23T00:00:00Z') }),
+    ).toBe(false)
+  })
+
+  it('発行から3年未満 → false', () => {
+    expect(
+      isQrUpdateRecommended('2026-01-01T00:00:00Z', { now: new Date('2028-12-31T00:00:00Z') }),
+    ).toBe(false)
+  })
+
+  it('発行から3年超 → true (更新推奨バッジ)', () => {
+    expect(
+      isQrUpdateRecommended('2023-01-01T00:00:00Z', { now: new Date('2026-05-01T00:00:00Z') }),
+    ).toBe(true)
+  })
+
+  it('recommendedYears=5 で5年未満 → false', () => {
+    expect(
+      isQrUpdateRecommended('2023-01-01T00:00:00Z', {
+        now: new Date('2026-05-01T00:00:00Z'),
+        recommendedYears: 5,
+      }),
+    ).toBe(false)
+  })
+
+  it('不正な日付文字列 → false', () => {
+    expect(isQrUpdateRecommended('not-a-date')).toBe(false)
   })
 })
 
@@ -221,17 +239,13 @@ describe('verifyBusinessRules', () => {
 describe('verifyQr (signature + business)', () => {
   it('正規フロー → ok', () => {
     const token = generateQrToken(payload, QR_SECRET)
-    const r = verifyQr(token, baseStore, () => baseUser, {
-      now: new Date('2026-06-01T00:00:00+09:00'),
-    })
+    const r = verifyQr(token, baseStore, () => baseUser)
     expect(r.ok).toBe(true)
   })
 
   it('署名NG が優先（ビジネス検証は走らない）', () => {
     const token = generateQrToken(payload, OTHER_SECRET)
-    const r = verifyQr(token, baseStore, () => null, {
-      now: new Date('2026-06-01T00:00:00+09:00'),
-    })
+    const r = verifyQr(token, baseStore, () => null)
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.code).toBe('QR_INVALID_SIGNATURE')
   })

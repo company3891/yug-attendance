@@ -27,7 +27,6 @@ export type VerifyErrorCode =
   | 'QR_INVALID_SIGNATURE'
   | 'QR_REVOKED'
   | 'QR_VERSION_MISMATCH'
-  | 'QR_EXPIRED'
   | 'USER_NOT_FOUND'
   | 'USER_INACTIVE'
   | 'STORE_MISMATCH'
@@ -89,22 +88,24 @@ export function verifyQrSignature(token: string, qrSecret: string): VerifyResult
 
 /**
  * 署名済みペイロードに対して、user/store の状態を見てビジネスルールを検証する。
- * 全ての検証順序が固定なので、テストでカバーしやすい。
+ *
+ * 仕様判断 (Phase 2):
+ *   - QR は基本「無期限」。失効は qr_revoked_at / qr_version / is_active の3点で制御。
+ *   - 発行から 3 年経過 = ハード期限ではなく「更新推奨バッジ」(別関数 isQrUpdateRecommended)
+ *     で運用上の注意喚起のみ行う。長期勤続パート従業員が突然打刻不能になる事故を避けるため。
  *
  * 検証順:
- *   1. user.id 一致
+ *   1. user の存在 / id 一致
  *   2. user.is_active = true
  *   3. user.store_id == payload.store_id（他店舗QR拒否）
  *   4. store.id == payload.store_id（端末の店舗と一致）
  *   5. user.qr_revoked_at が null（失効済みでない）
- *   6. user.qr_version >= payload.qr_version（古いQR拒否）
- *   7. issued_at から 3年経過 → QR_EXPIRED（警告レベル、運用次第で警告のみ可）
+ *   6. user.qr_version === payload.qr_version（旧 QR 拒否）
  */
 export function verifyBusinessRules(
   payload: QrPayload,
   user: UserSnapshot | null,
   store: StoreSnapshot,
-  options: { now?: Date; expirationYears?: number } = {},
 ): VerifyResult {
   if (!user) return { ok: false, code: 'USER_NOT_FOUND' }
   if (user.id !== payload.user_id) return { ok: false, code: 'USER_NOT_FOUND' }
@@ -115,17 +116,28 @@ export function verifyBusinessRules(
   if (user.qr_version !== payload.qr_version) {
     return { ok: false, code: 'QR_VERSION_MISMATCH' }
   }
-
-  // 有効期限チェック（既定 3 年）
-  const expirationYears = options.expirationYears ?? 3
-  const now = options.now ?? new Date()
-  const issuedMs = payload.issued_at * 1000
-  const expirationMs = expirationYears * 365 * 24 * 60 * 60 * 1000
-  if (now.getTime() - issuedMs > expirationMs) {
-    return { ok: false, code: 'QR_EXPIRED' }
-  }
-
   return { ok: true, payload }
+}
+
+/**
+ * QR の更新推奨判定（警告バッジ用）。
+ * 「発行から指定年数 (既定 3 年) 経過しているか」を返す。
+ * これ自体は打刻可否に影響せず、UI で「QR更新推奨」バッジを出す目的のみ。
+ *
+ * @param qrIssuedAt users.qr_issued_at (ISO8601 or null)
+ * @param options.now / options.recommendedYears
+ */
+export function isQrUpdateRecommended(
+  qrIssuedAt: string | null,
+  options: { now?: Date; recommendedYears?: number } = {},
+): boolean {
+  if (!qrIssuedAt) return false
+  const issuedMs = new Date(qrIssuedAt).getTime()
+  if (Number.isNaN(issuedMs)) return false
+  const years = options.recommendedYears ?? 3
+  const now = options.now ?? new Date()
+  const elapsedMs = now.getTime() - issuedMs
+  return elapsedMs > years * 365 * 24 * 60 * 60 * 1000
 }
 
 // ---------------------------------------------------------------------------
@@ -136,11 +148,10 @@ export function verifyQr(
   token: string,
   store: StoreSnapshot,
   fetchUser: (userId: string) => UserSnapshot | null,
-  options?: { now?: Date; expirationYears?: number },
 ): VerifyResult {
   const sigResult = verifyQrSignature(token, store.qr_secret)
   if (!sigResult.ok) return sigResult
 
   const user = fetchUser(sigResult.payload.user_id)
-  return verifyBusinessRules(sigResult.payload, user, store, options)
+  return verifyBusinessRules(sigResult.payload, user, store)
 }
