@@ -14,7 +14,8 @@ export default defineConfig({
       include: [
         'lib/workTime.ts',
         'lib/clockRounding.ts',
-        // 'lib/qr/**/*.ts',         // Step 5-6 で追加
+        'lib/clockLogic.ts',
+        'lib/qr/**/*.ts',
         // 'lib/forms/parse.ts',     // テスト追加時に有効化
       ],
       exclude: ['lib/**/*.test.ts'],
