@@ -131,12 +131,50 @@ export async function myAction(formData: FormData): Promise<MyState> {
 
 ### 打刻データの異常検知
 
-`attendances` テーブルに `has_anomaly boolean` + `anomaly_reason text` を持つ。
-以下の場合に `has_anomaly = true` を立て、管理者画面でハイライト表示する。
+`attendances` テーブルに `has_anomaly boolean` + `anomaly_codes text[]` を持つ。
+複数の異常を同時に持てる構造（配列）。管理画面では `unnest()` で集計可能。
 
-- 退勤時刻 < 出勤時刻（API は 422 で拒否、修正時のみ DB に anomaly として残る）
-- 休憩時間 > 実労働時間（laborMinutes を 0 にクランプ、警告ログ）
-- 連続勤務 24 時間超
+#### 打刻異常コード一覧
+
+| コード | 説明 | 検出層 | 対処 |
+|---|---|---|---|
+| `clock_out_before_in` | 退勤時刻 < 出勤時刻 | API (422拒否) / 修正時のみDB | 管理者が修正 |
+| `break_exceeds_work` | 休憩時間 > 実労働時間 | `lib/workTime.ts` | labor を 0 にクランプ、警告ログ |
+| `duration_over_24h` | 連続勤務 24 時間超 | `lib/workTime.ts` | 警告表示、別 attendance に分割推奨 |
+| `duplicate_clock` | 連続打刻（前回から1分以内）| `app/api/clock/route.ts` | API で 422 拒否、DB保存しない |
+
+**追加時のルール**:
+- 新コードを追加する時は本表 + `lib/workTime.ts` の `AnomalyCode` union + migration の comment を同時更新
+- DB の `anomaly_codes` カラムは text[] で自由格納だが、コード値は本表に必ず追記
+- 管理画面の表示文言は `lib/i18n/anomaly.ts`（Phase 4 で作成予定）に集約
+
+### 監査ログ（audit_logs）記録規約
+
+以下の操作は **必ず `audit_logs` テーブルに INSERT** する。漏れは Phase 4 のレビューで検出。
+
+| カテゴリ | トリガー | actor / before / after | 実装Phase |
+|---|---|---|---|
+| **QR失効** | `users.qr_revoked_at` を更新 | 操作管理者UID / qr_version / 新qr_version | **Phase 2** |
+| 有効化/無効化 | `users.is_active` 変更 | 操作管理者UID / true↔false | Phase 4 |
+| 打刻修正 | `attendances.modified_by` 入力 | 修正者UID / 修正前打刻 / 修正後打刻 | Phase 4 |
+| 給与情報変更 | `users.hourly_wage / monthly_wage / daily_wage / wage_type` 変更 | 操作管理者UID / 旧値 / 新値 | Phase 4 |
+| 権限変更 | `users.role` 変更 | 操作管理者UID / 旧role / 新role | Phase 4 |
+| マスター操作 | `companies` / `stores` の追加・削除 | マスターUID / 操作種別 | Phase 4 |
+
+**実装パターン**:
+```typescript
+// Server Action 内で操作直後に呼ぶ
+await admin.from('audit_logs').insert({
+  actor_id: me.id,
+  action: 'user.qr_revoke',           // 'resource.operation' 形式
+  resource_type: 'users',
+  resource_id: targetUserId,
+  before_data: { qr_version: 1, qr_revoked_at: null },
+  after_data: { qr_version: 2, qr_revoked_at: new Date().toISOString() },
+})
+```
+
+Phase 2 では **QR失効のみ** 実装。残り5カテゴリは Phase 4 で一括対応。
 
 ### レスポンシブ規約
 

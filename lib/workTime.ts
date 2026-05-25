@@ -53,8 +53,18 @@ export interface WorkTimeBreakdown {
   holidayMinutes: number           // 法定休日の労働時間（35%割増対象）
   holidayOverMinutes: number       // 平日労働時間（labor - holiday）
   hasAnomaly: boolean
-  anomalyReason: string | null
+  anomalyCodes: AnomalyCode[]
 }
+
+/**
+ * 打刻異常コード（attendances.anomaly_codes text[] に格納）。
+ * CLAUDE.md「打刻異常コード一覧」と同期を保つこと。
+ */
+export type AnomalyCode =
+  | 'clock_out_before_in'    // 退勤時刻 < 出勤時刻
+  | 'break_exceeds_work'     // 休憩時間 > 実労働時間
+  | 'duration_over_24h'      // 連続勤務 24 時間超
+  | 'duplicate_clock'        // 連続打刻（API層で検出）
 
 // ---------------------------------------------------------------------------
 // 基本: 労働時間（分）
@@ -118,16 +128,16 @@ export function calcWorkTimeBreakdown(input: WorkTimeInput): WorkTimeBreakdown {
     throw new Error('clockOut must be >= clockIn')
   }
 
-  const anomalies: string[] = []
+  const anomalies: AnomalyCode[] = []
   let laborMinutes = rawElapsed - breakMinutes
   if (laborMinutes < 0) {
-    anomalies.push('BREAK_OVERFLOW')
+    anomalies.push('break_exceeds_work')
     laborMinutes = 0
   }
 
   // 2) 24時間超チェック
   if (rawElapsed > MAX_LABOR_MINUTES_BEFORE_ANOMALY) {
-    anomalies.push('OVER_24H')
+    anomalies.push('duration_over_24h')
   }
 
   // 3) 法定外労働（>8h）
@@ -170,7 +180,7 @@ export function calcWorkTimeBreakdown(input: WorkTimeInput): WorkTimeBreakdown {
     holidayMinutes,
     holidayOverMinutes,
     hasAnomaly: anomalies.length > 0,
-    anomalyReason: anomalies.length > 0 ? anomalies.join(',') : null,
+    anomalyCodes: anomalies,
   }
 }
 

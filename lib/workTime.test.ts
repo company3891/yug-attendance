@@ -243,7 +243,7 @@ describe('calcWorkTimeBreakdown - anomaly detection', () => {
     ).toThrow()
   })
 
-  it('E2: 休憩 > 実時間 → hasAnomaly=true / labor=0 / anomalyReason=BREAK_OVERFLOW', () => {
+  it('E2: 休憩 > 実時間 → hasAnomaly=true / labor=0 / anomalyCodes に break_exceeds_work', () => {
     const r = calcWorkTimeBreakdown({
       clockIn: jst('2026-05-23T09:00'),
       clockOut: jst('2026-05-23T17:00'),
@@ -253,10 +253,10 @@ describe('calcWorkTimeBreakdown - anomaly detection', () => {
     })
     expect(r.laborMinutes).toBe(0)
     expect(r.hasAnomaly).toBe(true)
-    expect(r.anomalyReason).toContain('BREAK_OVERFLOW')
+    expect(r.anomalyCodes).toContain('break_exceeds_work')
   })
 
-  it('E3: 24h超勤務 → hasAnomaly=true / anomalyReason=OVER_24H', () => {
+  it('E3: 24h超勤務 → hasAnomaly=true / anomalyCodes に duration_over_24h', () => {
     const r = calcWorkTimeBreakdown({
       clockIn: jst('2026-05-23T09:00'),
       clockOut: jst('2026-05-24T10:00'),
@@ -264,12 +264,12 @@ describe('calcWorkTimeBreakdown - anomaly detection', () => {
       scheduledMinutes: 480,
       dayType: 'workday',
     })
-    expect(r.laborMinutes).toBe(1440) // 25h elapsed - 1h休 = 24h = 1440分
+    expect(r.laborMinutes).toBe(1440)
     expect(r.hasAnomaly).toBe(true)
-    expect(r.anomalyReason).toContain('OVER_24H')
+    expect(r.anomalyCodes).toContain('duration_over_24h')
   })
 
-  it('E4: 通常勤務 → hasAnomaly=false / anomalyReason=null', () => {
+  it('E4: 通常勤務 → hasAnomaly=false / anomalyCodes=[]', () => {
     const r = calcWorkTimeBreakdown({
       clockIn: jst('2026-05-23T09:00'),
       clockOut: jst('2026-05-23T17:00'),
@@ -278,6 +278,19 @@ describe('calcWorkTimeBreakdown - anomaly detection', () => {
       dayType: 'workday',
     })
     expect(r.hasAnomaly).toBe(false)
-    expect(r.anomalyReason).toBeNull()
+    expect(r.anomalyCodes).toEqual([])
+  })
+
+  it('E5: 複合異常 (休憩超過 + 24h超) → anomalyCodes に両方', () => {
+    const r = calcWorkTimeBreakdown({
+      clockIn: jst('2026-05-23T09:00'),
+      clockOut: jst('2026-05-24T11:00'),
+      breakMinutes: 2000, // 異常な休憩値
+      scheduledMinutes: 480,
+      dayType: 'workday',
+    })
+    expect(r.hasAnomaly).toBe(true)
+    expect(r.anomalyCodes).toContain('break_exceeds_work')
+    expect(r.anomalyCodes).toContain('duration_over_24h')
   })
 })
