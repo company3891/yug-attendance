@@ -28,7 +28,7 @@ const ROLE_RANK: Record<UserRole, number> = { master: 4, store: 3, admin: 2, emp
 
 function canShow(item: NavItem, role: UserRole) {
   if (!item.requires) return true
-  return ROLE_RANK[role] >= ROLE_RANK[item.requires]
+  return (ROLE_RANK[role] ?? 0) >= (ROLE_RANK[item.requires] ?? 0)
 }
 
 /**

@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5"
+  }
   public: {
     Tables: {
       annual_calendars: {
@@ -61,10 +66,12 @@ export type Database = {
       }
       attendances: {
         Row: {
+          anomaly_codes: string[]
           break_minutes: number
           clock_in: string | null
           clock_out: string | null
           created_at: string
+          has_anomaly: boolean
           id: string
           location_lat: number | null
           location_lng: number | null
@@ -78,10 +85,12 @@ export type Database = {
           work_date: string
         }
         Insert: {
+          anomaly_codes?: string[]
           break_minutes?: number
           clock_in?: string | null
           clock_out?: string | null
           created_at?: string
+          has_anomaly?: boolean
           id?: string
           location_lat?: number | null
           location_lng?: number | null
@@ -95,10 +104,12 @@ export type Database = {
           work_date: string
         }
         Update: {
+          anomaly_codes?: string[]
           break_minutes?: number
           clock_in?: string | null
           clock_out?: string | null
           created_at?: string
+          has_anomaly?: boolean
           id?: string
           location_lat?: number | null
           location_lng?: number | null
@@ -680,11 +691,15 @@ export type Database = {
           closed_days: number[] | null
           company_id: string
           created_at: string
+          day_start_time: string
           id: string
+          midnight_end_time: string
+          midnight_start_time: string
           name: string
           open_time: string | null
           phone: string | null
           qr_secret: string
+          scheduled_daily_minutes: number
           settings: Json
           store_code: string | null
           updated_at: string
@@ -695,11 +710,15 @@ export type Database = {
           closed_days?: number[] | null
           company_id: string
           created_at?: string
+          day_start_time?: string
           id?: string
+          midnight_end_time?: string
+          midnight_start_time?: string
           name: string
           open_time?: string | null
           phone?: string | null
           qr_secret?: string
+          scheduled_daily_minutes?: number
           settings?: Json
           store_code?: string | null
           updated_at?: string
@@ -710,11 +729,15 @@ export type Database = {
           closed_days?: number[] | null
           company_id?: string
           created_at?: string
+          day_start_time?: string
           id?: string
+          midnight_end_time?: string
+          midnight_start_time?: string
           name?: string
           open_time?: string | null
           phone?: string | null
           qr_secret?: string
+          scheduled_daily_minutes?: number
           settings?: Json
           store_code?: string | null
           updated_at?: string
@@ -760,6 +783,11 @@ export type Database = {
           payroll_close_day: number | null
           payroll_pay_day: number | null
           phone: string | null
+          qr_issued_at: string | null
+          qr_revoke_reason: string | null
+          qr_revoked_at: string | null
+          qr_revoked_by: string | null
+          qr_version: number
           role: Database["public"]["Enums"]["user_role"]
           slack_user_id: string | null
           store_id: string | null
@@ -797,6 +825,11 @@ export type Database = {
           payroll_close_day?: number | null
           payroll_pay_day?: number | null
           phone?: string | null
+          qr_issued_at?: string | null
+          qr_revoke_reason?: string | null
+          qr_revoked_at?: string | null
+          qr_revoked_by?: string | null
+          qr_version?: number
           role?: Database["public"]["Enums"]["user_role"]
           slack_user_id?: string | null
           store_id?: string | null
@@ -834,6 +867,11 @@ export type Database = {
           payroll_close_day?: number | null
           payroll_pay_day?: number | null
           phone?: string | null
+          qr_issued_at?: string | null
+          qr_revoke_reason?: string | null
+          qr_revoked_at?: string | null
+          qr_revoked_by?: string | null
+          qr_version?: number
           role?: Database["public"]["Enums"]["user_role"]
           slack_user_id?: string | null
           store_id?: string | null
@@ -854,6 +892,13 @@ export type Database = {
             columns: ["department_id"]
             isOneToOne: false
             referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "users_qr_revoked_by_fkey"
+            columns: ["qr_revoked_by"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
           {
@@ -914,7 +959,8 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
+
+}
     }
     Views: {
       [_ in never]: never
