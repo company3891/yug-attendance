@@ -5,6 +5,44 @@
 
 ---
 
+## 🖥 動作環境（2026-05-27 WSL 移行完了）
+
+| 項目 | 値 |
+|---|---|
+| **正本** | **WSL2 Ubuntu** (`/home/yusugclaude/yug-attendance/`) |
+| Node.js | nvm 配下 v24.15.0 (`~/.nvm/versions/node/v24.15.0/bin/node`) |
+| npm | v11.12.1 |
+| プロセス管理 | PM2 v7.0.1 (`~/.nvm/versions/node/v24.15.0/bin/pm2`) — `yug-attendance` |
+| URL | http://localhost:3000 (Windows ブラウザから直接アクセス可) |
+| WSL DNS | `/etc/resolv.conf` を 8.8.8.8 / 1.1.1.1 に固定（`generateResolvConf=false`）|
+| 旧場所（退避） | `C:\Users\yusug\Dropbox (個人用) (1)\02 株式会社YUG\yug-attendance_archived_20260527\` (削除しない、最終避難所) |
+
+### 必須遵守
+
+1. **作業はすべて WSL 側 `~/yug-attendance/` で行う。** Dropbox 側 (`yug-attendance_archived_*`) は **読み取り専用の歴史記録**として扱い、編集禁止。
+2. **WSL bash の非ログインシェル**（`wsl bash -c ...` / `wsl bash << EOF` 等）は `.bashrc` を読まないため nvm が自動ロードされない。Node を使うコマンドの前には必ず:
+   ```bash
+   export PATH="$HOME/.nvm/versions/node/v24.15.0/bin:$PATH"
+   ```
+   を入れる（あるいは `bash -lc` でログインシェルにする）。
+3. **PM2 操作は WSL 内で**:
+   ```bash
+   pm2 status              # 一覧
+   pm2 logs yug-attendance # ログ
+   pm2 restart yug-attendance
+   pm2 save                # 設定永続化（必須）
+   ```
+4. **Windows 側の PM2 (旧 yug-dev) は廃止済み。** `pm2 delete yug-dev` + 空状態 `pm2 save` 済みなので再起動時に復活しない。
+5. **Windows 側 Dropbox の Git リポジトリで Push しない**こと。push できる正本は WSL 側のみ。
+6. **NPM install で DNS / ECONNRESET エラーが出た場合** は `/etc/resolv.conf` の固定 nameserver と `wsl --shutdown` 再起動を確認する。
+
+### 移行で残った Windows 側資産（無視してよい）
+
+- `C:\Program Files\nodejs\` の Node v24.16.0 — 不要だが残置可
+- `C:\Users\yusug\AppData\Roaming\npm\pm2.cmd` 等 — 不要だが残置可（PM2 内部状態 `~/.pm2/dump.pm2` は空）
+
+---
+
 ## プロジェクト概要
 
 **YUG Attendance** - 飲食業界向け多店舗対応 出退勤管理SaaS
