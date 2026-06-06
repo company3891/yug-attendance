@@ -1,6 +1,7 @@
 'use client'
 
-import { useRef, useState, useCallback, useEffect, useActionState } from 'react'
+import { useRef, useState, useCallback, useEffect } from 'react'
+import { useFormState, useFormStatus } from 'react-dom'
 import { registerFaceAction, type FaceRegisterState } from '@/lib/actions/face'
 import { loadFaceModels, extractDescriptor, descriptorToArray, REQUIRED_DESCRIPTORS, detectorOptionsForRegistration } from '@/lib/faceAuth'
 
@@ -36,7 +37,7 @@ export function FaceSetupClient({
   const [faceDetected, setFaceDetected] = useState(false)
   const detectionIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const [state, formAction, isPending] = useActionState<FaceRegisterState, FormData>(
+  const [state, formAction] = useFormState<FaceRegisterState, FormData>(
     registerFaceAction,
     undefined,
   )
@@ -295,13 +296,7 @@ export function FaceSetupClient({
                 name="image_consent"
                 value={imageConsentChecked ? 'true' : 'false'}
               />
-              <button
-                type="submit"
-                disabled={isPending}
-                className="w-full rounded-xl bg-tiffany-500 py-3 text-base font-semibold text-white transition hover:bg-tiffany-600 disabled:opacity-50"
-              >
-                {isPending ? '登録中…' : '顔データを登録する'}
-              </button>
+              <RegisterSubmitButton />
             </form>
           </div>
         )}
@@ -350,5 +345,18 @@ export function FaceSetupClient({
         </a>
       </div>
     </div>
+  )
+}
+
+function RegisterSubmitButton() {
+  const { pending } = useFormStatus()
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="w-full rounded-xl bg-tiffany-500 py-3 text-base font-semibold text-white transition hover:bg-tiffany-600 disabled:opacity-50"
+    >
+      {pending ? '登録中…' : '顔データを登録する'}
+    </button>
   )
 }

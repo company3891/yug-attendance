@@ -1,6 +1,7 @@
 'use client'
 
-import { useActionState, useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useFormState } from 'react-dom'
 import { buttonClockAction, type ButtonClockState, type ButtonClockResult } from '@/lib/actions/face'
 import { announceClock } from '@/lib/speech'
 import type { ClockEventType } from '@/lib/speech'
@@ -34,16 +35,18 @@ const STATUS_LABELS: Record<ClockStatus, string> = {
 }
 
 export function ButtonClockPanel({ currentStatus }: ButtonClockPanelProps) {
-  const [state, formAction, isPending] = useActionState<ButtonClockState, FormData>(
+  const [state, formAction] = useFormState<ButtonClockState, FormData>(
     buttonClockAction,
     undefined,
   )
+  const [isPending, setIsPending] = useState(false)
   const confirmRef = useRef<HTMLDialogElement>(null)
   const pendingEventRef = useRef<ClockEventType | null>(null)
   const hiddenFormRef = useRef<HTMLFormElement>(null)
 
-  // 打刻成功時の音声読み上げ
+  // action 完了時に isPending をリセット + 音声読み上げ
   useEffect(() => {
+    setIsPending(false)
     if (!state || !state.ok) return
     const result = state as ButtonClockResult & { ok: true }
     if (result.voice?.enabled && result.voice?.lastName && result.event) {
@@ -61,6 +64,7 @@ export function ButtonClockPanel({ currentStatus }: ButtonClockPanelProps) {
     if (!pendingEventRef.current || !hiddenFormRef.current) return
     const fd = new FormData(hiddenFormRef.current)
     fd.set('event_type', pendingEventRef.current)
+    setIsPending(true)
     formAction(fd)
     pendingEventRef.current = null
   }
@@ -158,7 +162,7 @@ export function ButtonClockPanel({ currentStatus }: ButtonClockPanelProps) {
         <div className="mt-3 text-center text-xs text-muted-foreground">打刻中…</div>
       )}
 
-      {/* 隠しフォーム（useActionState に FormData を渡すため） */}
+      {/* 隠しフォーム（useFormState に FormData を渡すため） */}
       <form ref={hiddenFormRef} action={formAction} className="hidden">
         <input type="hidden" name="event_type" value="" />
       </form>
