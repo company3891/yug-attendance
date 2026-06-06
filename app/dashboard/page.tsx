@@ -1,13 +1,43 @@
 import Link from 'next/link'
 import { getCurrentUser } from '@/lib/auth/roles'
 import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+import { resolveWorkDate } from '@/lib/workTime'
 import { AppNav } from '@/components/app-nav'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { ButtonClockPanel } from '@/components/clock/button-clock-panel'
+
+type ClockStatus = 'off' | 'working' | 'on_break'
+
+async function getClockStatus(userId: string, storeId: string | null): Promise<ClockStatus> {
+  if (!storeId) return 'off'
+  const supabase = createClient()
+  const { data: store } = await supabase
+    .from('stores')
+    .select('day_start_time')
+    .eq('id', storeId)
+    .single()
+  const dayStart = (store as { day_start_time: string } | null)?.day_start_time ?? '00:00'
+  const workDate = resolveWorkDate(new Date(), dayStart)
+
+  const { data: today } = await supabase
+    .from('attendances')
+    .select('clock_in, clock_out')
+    .eq('user_id', userId)
+    .eq('work_date', workDate)
+    .maybeSingle()
+
+  if (!today) return 'off'
+  const row = today as { clock_in: string | null; clock_out: string | null }
+  if (row.clock_in && !row.clock_out) return 'working'
+  return 'off'
+}
 
 export default async function DashboardPage() {
   const user = await getCurrentUser()
   if (!user) redirect('/login')
 
+  const clockStatus = await getClockStatus(user.id, user.store_id)
   const isAdminOrAbove = ['master', 'store', 'admin'].includes(user.role)
   const isStoreOrAbove = ['master', 'store'].includes(user.role)
 
@@ -21,6 +51,13 @@ export default async function DashboardPage() {
             YUG Attendance へようこそ。下記から各機能にアクセスしてください。
           </p>
         </div>
+
+        {/* ボタン打刻パネル（store_id がある場合のみ表示） */}
+        {user.store_id && (
+          <div className="mb-6 max-w-md">
+            <ButtonClockPanel currentStatus={clockStatus} />
+          </div>
+        )}
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <DashboardCard

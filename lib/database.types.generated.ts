@@ -151,6 +151,7 @@ export type Database = {
           action: string
           actor_id: string | null
           after_data: Json | null
+          auth_method: string | null
           before_data: Json | null
           created_at: string
           id: string
@@ -163,6 +164,7 @@ export type Database = {
           action: string
           actor_id?: string | null
           after_data?: Json | null
+          auth_method?: string | null
           before_data?: Json | null
           created_at?: string
           id?: string
@@ -175,6 +177,7 @@ export type Database = {
           action?: string
           actor_id?: string | null
           after_data?: Json | null
+          auth_method?: string | null
           before_data?: Json | null
           created_at?: string
           id?: string
@@ -703,6 +706,7 @@ export type Database = {
           settings: Json
           store_code: string | null
           updated_at: string
+          voice_announcement_default: boolean
         }
         Insert: {
           address?: string | null
@@ -722,6 +726,7 @@ export type Database = {
           settings?: Json
           store_code?: string | null
           updated_at?: string
+          voice_announcement_default?: boolean
         }
         Update: {
           address?: string | null
@@ -741,6 +746,7 @@ export type Database = {
           settings?: Json
           store_code?: string | null
           updated_at?: string
+          voice_announcement_default?: boolean
         }
         Relationships: [
           {
@@ -766,7 +772,13 @@ export type Database = {
           emergency_contact: Json | null
           employee_no: string | null
           employment_type: string | null
+          face_auth_enabled: boolean
           face_descriptor: Json | null
+          face_descriptors: Json | null
+          face_failed_count: number
+          face_image_consent: boolean
+          face_last_failed_at: string | null
+          face_registered_at: string | null
           gender: string | null
           hire_date: string | null
           hourly_wage: number | null
@@ -792,6 +804,7 @@ export type Database = {
           slack_user_id: string | null
           store_id: string | null
           updated_at: string
+          voice_announcement_enabled: boolean | null
           wage_type: string | null
           weekly_workdays: number | null
         }
@@ -808,7 +821,13 @@ export type Database = {
           emergency_contact?: Json | null
           employee_no?: string | null
           employment_type?: string | null
+          face_auth_enabled?: boolean
           face_descriptor?: Json | null
+          face_descriptors?: Json | null
+          face_failed_count?: number
+          face_image_consent?: boolean
+          face_last_failed_at?: string | null
+          face_registered_at?: string | null
           gender?: string | null
           hire_date?: string | null
           hourly_wage?: number | null
@@ -834,6 +853,7 @@ export type Database = {
           slack_user_id?: string | null
           store_id?: string | null
           updated_at?: string
+          voice_announcement_enabled?: boolean | null
           wage_type?: string | null
           weekly_workdays?: number | null
         }
@@ -850,7 +870,13 @@ export type Database = {
           emergency_contact?: Json | null
           employee_no?: string | null
           employment_type?: string | null
+          face_auth_enabled?: boolean
           face_descriptor?: Json | null
+          face_descriptors?: Json | null
+          face_failed_count?: number
+          face_image_consent?: boolean
+          face_last_failed_at?: string | null
+          face_registered_at?: string | null
           gender?: string | null
           hire_date?: string | null
           hourly_wage?: number | null
@@ -876,6 +902,7 @@ export type Database = {
           slack_user_id?: string | null
           store_id?: string | null
           updated_at?: string
+          voice_announcement_enabled?: boolean | null
           wage_type?: string | null
           weekly_workdays?: number | null
         }
