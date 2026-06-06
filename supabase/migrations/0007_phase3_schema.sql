@@ -71,6 +71,12 @@ values (
 )
 on conflict (id) do nothing;
 
+-- 既存ポリシーがあれば削除（冪等性確保）
+drop policy if exists "face_images_upload_own" on storage.objects;
+drop policy if exists "face_images_select_own" on storage.objects;
+drop policy if exists "face_images_delete_own" on storage.objects;
+drop policy if exists "face_images_delete_master" on storage.objects;
+
 -- RLS policies for face-images bucket
 
 -- 本人: 自分のフォルダのみアップロード可 (path: {user_id}/*)
