@@ -30,7 +30,6 @@ type Phase =
   | 'error'
 
 const DETECT_INTERVAL_MS = 800
-const SUCCESS_DISPLAY_MS = 3000
 const FAIL_DISPLAY_MS = 2500
 
 export function FaceClock({ userId, userName, storeId, voiceEnabled, failCount: initialFailCount }: FaceClockProps) {
@@ -91,25 +90,22 @@ export function FaceClock({ userId, userName, storeId, voiceEnabled, failCount: 
       const event = json.event as ClockEventType
       setClockResult({ event, labor_minutes: json.labor_minutes ?? null })
       setPhase('success')
-      setMessage(eventLabel(event))
-      setSubMessage(
-        event === 'clock_out' && typeof json.labor_minutes === 'number'
-          ? `本日の労働時間: ${formatMinutes(json.labor_minutes)}`
-          : `勤務日: ${json.work_date}`,
-      )
 
-      // 音声読み上げ
-      announceClock(lastName, event, voiceEnabled)
+      // カメラを停止（成功画面を表示するため不要）
+      stopCamera()
 
-      setTimeout(() => {
-        // 成功後はQRページへ戻る（次の人が使えるように）
-        router.push('/clock/qr')
-      }, SUCCESS_DISPLAY_MS)
+      // PC/Android では自動再生。iOS Safari では非同期後の speak() が無音になるため
+      // サイレントに失敗させ、成功画面のボタンで再生させる
+      try {
+        announceClock(lastName, event, voiceEnabled)
+      } catch {
+        // iOS Safari: ユーザー操作から切れた非同期コンテキストでは失敗。ボタンで補完。
+      }
     } catch (e) {
       setPhase('error')
       setMessage(`通信エラー: ${e instanceof Error ? e.message : String(e)}`)
     }
-  }, [userId, storeId, lastName, voiceEnabled, router])
+  }, [userId, storeId, lastName, voiceEnabled, stopCamera])
 
   // 顔認証メインループ
   const startDetection = useCallback(async () => {
@@ -207,6 +203,57 @@ export function FaceClock({ userId, userName, storeId, voiceEnabled, failCount: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // 成功画面（iOS Safari 対応: ボタンで音声再生）
+  if (phase === 'success' && clockResult) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-6">
+        {/* 成功インジケーター */}
+        <div className="flex h-36 w-36 items-center justify-center rounded-full border-4 border-tiffany-500 bg-tiffany-500/20">
+          <span className="text-6xl text-tiffany-400">✓</span>
+        </div>
+
+        {/* 打刻結果テキスト */}
+        <div className="text-center">
+          <p className="text-2xl font-bold text-tiffany-300">
+            {lastName}さん、{eventLabel(clockResult.event)}
+          </p>
+          {clockResult.labor_minutes !== null && (
+            <p className="mt-2 text-sm text-white/70">
+              本日の労働時間: {formatMinutes(clockResult.labor_minutes)}
+            </p>
+          )}
+        </div>
+
+        {/* 音声ボタン（iOS Safari 対応: onClick で直接再生） */}
+        {voiceEnabled && (
+          <button
+            onClick={() => announceClock(lastName, clockResult.event, voiceEnabled)}
+            className="rounded-xl border border-tiffany-500/50 bg-tiffany-500/20 px-6 py-3 text-base font-medium text-tiffany-300 transition hover:bg-tiffany-500/30 active:scale-95"
+          >
+            🔊 音声で確認する
+          </button>
+        )}
+
+        {/* ナビゲーション */}
+        <div className="flex gap-3">
+          <a
+            href="/clock/face"
+            className="rounded-xl border border-white/20 px-5 py-2.5 text-sm text-white/70 transition hover:bg-white/10"
+          >
+            もう一度打刻する
+          </a>
+          <a
+            href="/dashboard"
+            className="rounded-xl border border-white/20 px-5 py-2.5 text-sm text-white/70 transition hover:bg-white/10"
+          >
+            ダッシュボードへ
+          </a>
+        </div>
+      </div>
+    )
+  }
+
+  // 認証中画面
   const phaseColors: Record<Phase, string> = {
     loading_model: 'text-white/60',
     waiting: 'text-white/80',
@@ -238,13 +285,12 @@ export function FaceClock({ userId, userName, storeId, voiceEnabled, failCount: 
       {/* 認証状態表示 */}
       <div className="flex h-48 w-48 flex-col items-center justify-center rounded-full border-4 border-tiffany-500/30">
         <div className="text-5xl">
-          {phase === 'success' ? '✓' :
-           phase === 'failed' ? '✗' :
+          {phase === 'failed' ? '✗' :
            phase === 'clocking' ? '⏳' :
            phase === 'detecting' ? '👤' : '⋯'}
         </div>
         <div className="mt-2 text-xs text-white/50">
-          {failCount > 0 && phase !== 'success' && `失敗 ${failCount}/${MAX_FAIL_COUNT}`}
+          {failCount > 0 && `失敗 ${failCount}/${MAX_FAIL_COUNT}`}
         </div>
       </div>
 
@@ -253,18 +299,6 @@ export function FaceClock({ userId, userName, storeId, voiceEnabled, failCount: 
         <p className={`text-lg font-semibold ${phaseColors[phase]}`}>{message}</p>
         {subMessage && <p className="mt-1 text-sm text-white/60">{subMessage}</p>}
       </div>
-
-      {/* 成功結果 */}
-      {clockResult && phase === 'success' && (
-        <div className="rounded-xl border border-tiffany-500/30 bg-tiffany-500/10 px-8 py-4 text-center">
-          <p className="text-xl font-bold text-tiffany-300">{eventLabel(clockResult.event)}</p>
-          {clockResult.labor_minutes !== null && (
-            <p className="text-sm text-white/70">
-              労働時間: {formatMinutes(clockResult.labor_minutes)}
-            </p>
-          )}
-        </div>
-      )}
 
       {/* エラー */}
       {(errorMsg || phase === 'error') && (
