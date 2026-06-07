@@ -342,7 +342,7 @@ vercel --prod
 ### 現在のPhase進捗（更新していくこと）
 - [x] Phase 1: Supabase設定 + 認証 + 権限制御 + 従業員CRUD（タグ: v0.1.0-phase1-complete）
 - [x] Phase 2: QR打刻 + 労働時間計算 + 自分の勤怠画面（純関数100%テスト、API構造化エラー、タブレット最適化、QR管理/印刷/失効）
-- [ ] Phase 3: 顔認証打刻（face-api.js統合）
+- [x] Phase 3: 顔認証打刻（face-api.js統合、ボタン打刻、音声読み上げ、管理者認証設定、個人設定）（タグ: v0.3.0-phase3-complete）
 - [ ] Phase 4: 打刻修正・管理者画面・レポートCSV
 - [ ] Phase 5: 有給管理 + Slack/LINE通知Cron
 - [ ] Phase 6: 年間カレンダー（自動生成・編集・所定時間計算）

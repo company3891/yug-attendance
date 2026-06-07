@@ -15,6 +15,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard',         label: 'ダッシュボード', icon: '🏠' },
   { href: '/clock/qr',          label: '打刻 (QR)',       icon: '📷' },
   { href: '/me/attendance',     label: '自分の勤怠',     icon: '🕒' },
+  { href: '/me/profile',        label: '個人設定',        icon: '⚙️' },
   { href: '/me/leave',          label: '有給申請',        icon: '🌴' },
   { href: '/admin/users',       label: '従業員管理',     icon: '👥', requires: 'admin' },
   { href: '/admin/users/qr',    label: 'QRコード管理',   icon: '🪪', requires: 'admin' },

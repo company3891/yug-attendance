@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Html5Qrcode } from 'html5-qrcode'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
+import { announceClock, type ClockEventType } from '@/lib/speech'
 
 type ToastKind = 'success' | 'error' | 'info'
 
@@ -17,6 +18,8 @@ interface ClockReaderProps {
   stores: { id: string; name: string }[]
   defaultStoreId: string | null
   userName: string
+  voiceEnabled: boolean
+  lastName: string
 }
 
 const READER_ID = 'qr-reader-region'
@@ -30,7 +33,7 @@ const REGION_PX = 320
  * - スキャン成功 → POST /api/clock → 結果トーストを 3 秒表示 → 自動でスキャン再開
  * - 端末紐付け店舗 (store_id) はユーザーの所属店舗 既定。master のみ手動切替可。
  */
-export function ClockReader({ stores, defaultStoreId, userName }: ClockReaderProps) {
+export function ClockReader({ stores, defaultStoreId, userName, voiceEnabled, lastName }: ClockReaderProps) {
   const [storeId, setStoreId] = useState(defaultStoreId ?? '')
   const [running, setRunning] = useState(false)
   const [toast, setToast] = useState<ToastState | null>(null)
@@ -105,14 +108,16 @@ export function ClockReader({ stores, defaultStoreId, userName }: ClockReaderPro
           body: json.message ?? `HTTP ${res.status}`,
         })
       } else {
+        const event = json.event as ClockEventType
         setToast({
           kind: 'success',
-          title: json.event === 'clock_in' ? '出勤を記録しました' : '退勤を記録しました',
+          title: event === 'clock_in' ? '出勤を記録しました' : '退勤を記録しました',
           body:
-            json.event === 'clock_out' && typeof json.labor_minutes === 'number'
+            event === 'clock_out' && typeof json.labor_minutes === 'number'
               ? `本日の労働時間: ${formatMinutes(json.labor_minutes)}`
               : `勤務日: ${json.work_date}`,
         })
+        announceClock(lastName, event, voiceEnabled)
       }
     } catch (e) {
       setToast({

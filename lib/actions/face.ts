@@ -1,5 +1,6 @@
 'use server'
 
+import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/server'
 import { parseFormData, actionFail, actionOk, type ActionState } from '@/lib/forms/parse'
 import { getCurrentUser } from '@/lib/auth/roles'
@@ -107,6 +108,8 @@ export async function resetFaceAction(
 
   if (error) return actionFail(`リセットに失敗しました: ${error.message}`)
 
+  revalidatePath(`/admin/users/${user_id}`)
+  revalidatePath('/me/profile')
   await admin.from('audit_logs').insert({
     actor_id: me.id,
     action: 'face.reset',
@@ -159,6 +162,8 @@ export async function toggleFaceAuthAction(
 
   if (error) return actionFail(`更新に失敗しました: ${error.message}`)
 
+  revalidatePath(`/admin/users/${user_id}`)
+  revalidatePath('/me/profile')
   return actionOk(face_auth_enabled ? '顔認証を有効にしました' : '顔認証を無効にしました')
 }
 
@@ -190,6 +195,8 @@ export async function updateVoiceSettingAction(
 
   if (error) return actionFail(`更新に失敗しました: ${error.message}`)
 
+  revalidatePath(`/admin/users/${user_id}`)
+  revalidatePath('/me/profile')
   return actionOk('音声設定を更新しました')
 }
 
