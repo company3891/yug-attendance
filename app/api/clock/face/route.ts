@@ -15,7 +15,8 @@ import { z } from 'zod'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { translateError, type ErrorCode } from '@/lib/errors/translate'
 import { decideClockEvent, type AttendanceSnapshot, type ClockRejectCode } from '@/lib/clockLogic'
-import { calcWorkTimeBreakdown, resolveWorkDate, type DayType } from '@/lib/workTime'
+import { calcWorkTimeBreakdown, resolveWorkDate } from '@/lib/workTime'
+import { resolveDayCalcSettings } from '@/lib/settings/server'
 
 const faceClockBodySchema = z.object({
   user_id: z.string().uuid(),
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest) {
 
     const { data: store } = await admin
       .from('stores')
-      .select('id, day_start_time, scheduled_daily_minutes')
+      .select('id, day_start_time, company_id')
       .eq('id', body.store_id)
       .single()
     if (!store) return errJson('INTERNAL_ERROR', '店舗情報が取得できません')
@@ -180,12 +181,18 @@ export async function POST(request: NextRequest) {
     const clockInAt = new Date((todayRow as unknown as AttendanceSnapshot).clock_in!)
     if (now.getTime() < clockInAt.getTime()) return errJson('CLOCK_OUT_BEFORE_IN')
 
-    const dayType: DayType = 'workday'
+    // 所定・日種別を台帳から解決（Phase 5）
+    const { scheduledMinutes, dayType } = await resolveDayCalcSettings(admin, {
+      companyId: (store as { company_id: string }).company_id,
+      storeId: (store as { id: string }).id,
+      userId: body.user_id,
+      workDate,
+    })
     const breakdown = calcWorkTimeBreakdown({
       clockIn: clockInAt,
       clockOut: now,
       breakMinutes: 0,
-      scheduledMinutes: (store as { scheduled_daily_minutes: number }).scheduled_daily_minutes ?? 480,
+      scheduledMinutes,
       dayType,
     })
 

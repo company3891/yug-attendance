@@ -232,7 +232,8 @@ export async function resetFaceFailCount(userId: string): Promise<void> {
 // ---------------------------------------------------------------------------
 import { z } from 'zod'
 import { decideClockEvent, type AttendanceSnapshot } from '@/lib/clockLogic'
-import { calcWorkTimeBreakdown, resolveWorkDate, type DayType } from '@/lib/workTime'
+import { calcWorkTimeBreakdown, resolveWorkDate } from '@/lib/workTime'
+import { resolveDayCalcSettings } from '@/lib/settings/server'
 import { extractLastName, resolveVoiceEnabled, type ClockEventType } from '@/lib/speech'
 
 const buttonClockSchema = z.object({
@@ -268,7 +269,7 @@ export async function buttonClockAction(
   // 店舗情報取得
   const { data: store } = await admin
     .from('stores')
-    .select('id, day_start_time, midnight_start_time, midnight_end_time, scheduled_daily_minutes, voice_announcement_default')
+    .select('id, day_start_time, midnight_start_time, midnight_end_time, voice_announcement_default, company_id')
     .eq('id', me.store_id!)
     .single()
 
@@ -373,13 +374,18 @@ export async function buttonClockAction(
       return actionFail('退勤時刻が出勤時刻より前になっています')
     }
 
-    const dayType: DayType = 'workday'
+    // 所定・日種別を台帳から解決（Phase 5）
+    const { scheduledMinutes, dayType } = await resolveDayCalcSettings(admin, {
+      companyId: (store as { company_id: string }).company_id,
+      storeId: (store as { id: string }).id,
+      userId: me.id,
+      workDate,
+    })
     const breakdown = calcWorkTimeBreakdown({
       clockIn: clockInAt,
       clockOut: now,
       breakMinutes: 0,
-      scheduledMinutes:
-        (store as { scheduled_daily_minutes: number }).scheduled_daily_minutes ?? 480,
+      scheduledMinutes,
       dayType,
     })
     labor_minutes = breakdown.laborMinutes

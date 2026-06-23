@@ -6,7 +6,8 @@ import { requireRole } from '@/lib/auth/roles'
 import { actionFail, actionOk, parseFormData, type ActionState } from '@/lib/forms/parse'
 import { attendanceUpdateSchema } from '@/lib/schemas/attendance'
 import { jstLocalToDate } from '@/lib/datetime'
-import { calcWorkTimeBreakdown, type DayType } from '@/lib/workTime'
+import { calcWorkTimeBreakdown } from '@/lib/workTime'
+import { resolveDayCalcSettings } from '@/lib/settings/server'
 import { canEditAttendance } from '@/lib/permissions/attendance'
 
 export type AttendanceEditState = ActionState<'clock_in' | 'clock_out' | 'break_minutes'>
@@ -82,14 +83,18 @@ export async function updateAttendanceAction(
   }
 
   // --- 6. 再計算（退勤が揃っている場合のみ）---
-  // 店舗の所定時間を取得（深夜帯は打刻ルートと同様デフォルト 22:00-05:00 を使用）
+  // 所定・日種別は work_rules/holiday_settings 台帳から解決（Phase 5、打刻ルートと同一経路）
   const { data: store } = await admin
     .from('stores')
-    .select('scheduled_daily_minutes')
+    .select('company_id')
     .eq('id', beforeRow.store_id)
     .single()
-  const scheduledMinutes =
-    (store as { scheduled_daily_minutes: number } | null)?.scheduled_daily_minutes ?? 480
+  const { scheduledMinutes, dayType } = await resolveDayCalcSettings(admin, {
+    companyId: (store as { company_id: string } | null)?.company_id ?? '',
+    storeId: beforeRow.store_id,
+    userId: beforeRow.user_id,
+    workDate: beforeRow.work_date,
+  })
 
   let hasAnomaly = false
   let anomalyCodes: string[] = []
@@ -105,7 +110,6 @@ export async function updateAttendanceAction(
   } | null = null
 
   if (clockOutAt) {
-    const dayType: DayType = 'workday' // Phase 6 の年間カレンダー実装まで打刻ルートと同じく固定
     const breakdown = calcWorkTimeBreakdown({
       clockIn: clockInAt,
       clockOut: clockOutAt,

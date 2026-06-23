@@ -28,7 +28,8 @@ import {
   type AttendanceSnapshot,
   type ClockRejectCode,
 } from '@/lib/clockLogic'
-import { calcWorkTimeBreakdown, resolveWorkDate, type DayType } from '@/lib/workTime'
+import { calcWorkTimeBreakdown, resolveWorkDate } from '@/lib/workTime'
+import { resolveDayCalcSettings } from '@/lib/settings/server'
 
 // HTTP ステータスとエラーコードのマッピング
 const STATUS_BY_CODE: Record<string, number> = {
@@ -111,7 +112,7 @@ export async function POST(request: NextRequest) {
     const admin = createAdminClient()
     const { data: store, error: storeErr } = await admin
       .from('stores')
-      .select('id, qr_secret, day_start_time, midnight_start_time, midnight_end_time, scheduled_daily_minutes, company_id')
+      .select('id, qr_secret, day_start_time, midnight_start_time, midnight_end_time, company_id')
       .eq('id', body.store_id)
       .single()
     if (storeErr || !store) return errJson('STORE_MISMATCH')
@@ -222,14 +223,18 @@ export async function POST(request: NextRequest) {
       return errJson('CLOCK_OUT_BEFORE_IN')
     }
 
-    // labor 計算 (dayType は Phase 6 の calendar_days 実装まで簡易に workday 固定)
-    const dayType: DayType = 'workday'
+    // labor 計算: 所定・日種別を work_rules/holiday_settings 台帳から解決（Phase 5）
+    const { scheduledMinutes, dayType } = await resolveDayCalcSettings(admin, {
+      companyId: (store as { company_id: string }).company_id,
+      storeId: (store as { id: string }).id,
+      userId,
+      workDate,
+    })
     const breakdown = calcWorkTimeBreakdown({
       clockIn: clockInAt,
       clockOut: now,
       breakMinutes: 0, // Phase 5 で休憩明細導入時に変更
-      scheduledMinutes:
-        (store as { scheduled_daily_minutes: number }).scheduled_daily_minutes ?? 480,
+      scheduledMinutes,
       dayType,
     })
 
