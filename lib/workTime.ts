@@ -108,6 +108,60 @@ export function calcMidnightMinutes(
 }
 
 // ---------------------------------------------------------------------------
+// 深夜残業（深夜帯 ∩ 法定外残業）— レポート「深夜残業」列の検算・表示用
+// ---------------------------------------------------------------------------
+
+/**
+ * 「深夜帯(22:00-05:00) かつ 法定外残業(日8h超)」に重なった分数を返す。
+ *
+ * 位置づけ:
+ * - これは `midnight_over_minutes`（= 深夜割増"外"労働＝労働−深夜、仕様書5-2準拠）とは **別物**。
+ *   `midnight_over_minutes` には一切手を加えない。
+ * - 本値は **深夜(midnightMinutes)の内数**（部分集合）。割増50%枠（法定外25% + 深夜25%）の特定用。
+ * - 概算支給額の計算には使わない（金額は 所定外×1.25 + 深夜×0.25 で確定済み）。表示・検算専用。
+ *
+ * 算出モデル（既存の簡易モデルと整合）:
+ * - 法定外残業は勤務の「後半（退勤側）」に発生するものとし、ネット労働の最後の overtime 分を
+ *   壁時計の末尾区間 [clockOut - overtime, clockOut] とみなす（休憩位置は既存同様に無視）。
+ * - その末尾区間に含まれる深夜帯分を calcMidnightMinutes で数え、深夜総量・残業総量で上限クランプ。
+ */
+export function calcMidnightOvertimeMinutes(
+  clockIn: Date,
+  clockOut: Date,
+  breakMinutes: number,
+  midnightStartHour: number = DEFAULT_MIDNIGHT_START_HOUR,
+  midnightEndHour: number = DEFAULT_MIDNIGHT_END_HOUR,
+  legalDailyMinutes: number = LEGAL_DAILY_MINUTES,
+): number {
+  if (clockOut.getTime() <= clockIn.getTime()) return 0
+
+  const elapsed = Math.floor((clockOut.getTime() - clockIn.getTime()) / MINUTE)
+  const netLabor = Math.max(0, elapsed - breakMinutes)
+  if (netLabor === 0) return 0
+
+  const overtime = Math.max(0, netLabor - legalDailyMinutes)
+  if (overtime === 0) return 0
+
+  // 深夜総量（既存 breakdown と同じ求め方: 全区間の深夜分を netLabor で上限クランプ）
+  const midnightTotal = Math.min(
+    calcMidnightMinutes(clockIn, clockOut, midnightStartHour, midnightEndHour),
+    netLabor,
+  )
+
+  // 残業の末尾区間に含まれる深夜帯分
+  const overtimeWindowStart = new Date(clockOut.getTime() - overtime * MINUTE)
+  const midnightInOvertime = calcMidnightMinutes(
+    overtimeWindowStart,
+    clockOut,
+    midnightStartHour,
+    midnightEndHour,
+  )
+
+  // 内数保証: 深夜総量・残業総量を超えない
+  return Math.min(midnightInOvertime, midnightTotal, overtime)
+}
+
+// ---------------------------------------------------------------------------
 // 統合: 8 項目すべて計算
 // ---------------------------------------------------------------------------
 

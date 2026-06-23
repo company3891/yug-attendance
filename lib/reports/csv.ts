@@ -11,6 +11,11 @@
 import { formatJstDateTime, minutesToHourMinute } from '@/lib/datetime'
 import { WAGE_TYPE_LABEL, type ReportRow } from './build'
 
+/**
+ * CSV ヘッダー（全15列）。
+ * 「深夜」列 = 深夜帯(22-5時)の総労働時間。
+ * 「深夜残業」列 = そのうち法定外残業(日8h超)に重なった分（= 深夜列の内数／割増50%枠の検算用）。
+ */
 export const CSV_HEADERS = [
   '従業員名',
   '店舗',
@@ -54,8 +59,8 @@ export function reportRowToCsvCells(r: ReportRow): string[] {
     minutesToHourMinute(r.scheduledInMinutes),
     minutesToHourMinute(r.overScheduledMinutes),
     minutesToHourMinute(r.overLegalMinutes),
-    minutesToHourMinute(r.midnightMinutes),
-    minutesToHourMinute(r.midnightOverMinutes),
+    minutesToHourMinute(r.midnightMinutes), // 深夜: 深夜帯の総労働
+    minutesToHourMinute(r.midnightOvertimeMinutes), // 深夜残業: 深夜 ∩ 法定外残業（深夜の内数）
     minutesToHourMinute(r.holidayMinutes),
     r.wageType ? WAGE_TYPE_LABEL[r.wageType] : '－',
     r.unitWage != null ? String(r.unitWage) : '',

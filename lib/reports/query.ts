@@ -27,6 +27,7 @@ interface JoinedRow {
   work_date: string
   clock_in: string | null
   clock_out: string | null
+  break_minutes: number | null
   users:
     | {
         name: string
@@ -65,7 +66,7 @@ export async function fetchReportRows(
   let query = supabase
     .from('attendances')
     .select(
-      'user_id, store_id, work_date, clock_in, clock_out, ' +
+      'user_id, store_id, work_date, clock_in, clock_out, break_minutes, ' +
         'users(name, wage_type, hourly_wage, monthly_wage, daily_wage), ' +
         'stores(name), ' +
         'work_time_calculations(labor_minutes, scheduled_minutes, over_scheduled_minutes, over_legal_minutes, midnight_minutes, midnight_over_minutes, holiday_minutes, holiday_over_minutes)',
@@ -87,6 +88,7 @@ export async function fetchReportRows(
       workDate: r.work_date,
       clockIn: r.clock_in,
       clockOut: r.clock_out,
+      breakMinutes: r.break_minutes ?? 0,
       wtc: one(r.work_time_calculations),
       wageType: asWageType(u?.wage_type ?? null),
       hourlyWage: u?.hourly_wage ?? null,

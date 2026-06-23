@@ -25,6 +25,7 @@ const base: ReportRowInput = {
   workDate: '2026-06-01',
   clockIn: '2026-06-01T00:00:00.000Z', // JST 09:00
   clockOut: '2026-06-01T08:00:00.000Z', // JST 17:00
+  breakMinutes: 0,
   wtc: wtc(),
   wageType: 'hourly',
   hourlyWage: 1200,
@@ -47,6 +48,29 @@ describe('buildReportRow 列対応', () => {
     const r = buildReportRow({ ...base, wtc: null })
     expect(r.laborMinutes).toBe(0)
     expect(r.scheduledInMinutes).toBe(0)
+  })
+
+  it('深夜残業 = 深夜∩法定外残業（clock時刻から算出、深夜列の内数）', () => {
+    // 16:00→翌03:00 休60 = net600, 残業120。末尾[01:00,03:00] は全て深夜 → 深夜残業120
+    const r = buildReportRow({
+      ...base,
+      clockIn: '2026-06-01T07:00:00.000Z', // JST 16:00
+      clockOut: '2026-06-01T18:00:00.000Z', // JST 翌03:00
+      breakMinutes: 60,
+      wtc: wtc({ labor_minutes: 600, midnight_minutes: 300 }),
+    })
+    expect(r.midnightOvertimeMinutes).toBe(120)
+    expect(r.midnightOvertimeMinutes).toBeLessThanOrEqual(r.midnightMinutes) // 内数
+  })
+
+  it('深夜残業: 残業なし(日中8h)は 0', () => {
+    const r = buildReportRow({ ...base, breakMinutes: 0 }) // 09:00-17:00 = 8h, 残業0
+    expect(r.midnightOvertimeMinutes).toBe(0)
+  })
+
+  it('深夜残業: clock_out 欠損なら 0', () => {
+    const r = buildReportRow({ ...base, clockOut: null })
+    expect(r.midnightOvertimeMinutes).toBe(0)
   })
 
   it('単価は wage_type に対応した値', () => {

@@ -159,6 +159,10 @@ export default async function AdminReportsPage() {
               深夜 / 深夜残業 / 法定休日 / 給与種別 / 単価 / 概算支給額
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
+              ※「深夜」列＝深夜帯（22:00–05:00）の総労働時間。「深夜残業」列＝そのうち法定外残業（日8h超）に重なった分
+              （＝深夜列の<strong>内数</strong>。割増50%＝法定外25%＋深夜25%の枠）。検算・表示用で、概算支給額の計算には用いません。
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
               ※ 概算支給額は work_time_calculations の労働時間区分と給与種別から算出した参考値です。
               実支給額は控除・各種手当を加味して確定します。
             </p>

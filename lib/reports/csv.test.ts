@@ -8,6 +8,7 @@ const input: ReportRowInput = {
   workDate: '2026-06-01',
   clockIn: '2026-06-01T00:00:00.000Z', // JST 09:00
   clockOut: '2026-06-01T08:30:00.000Z', // JST 17:30
+  breakMinutes: 0,
   wtc: {
     labor_minutes: 510,
     scheduled_minutes: 480,
@@ -56,6 +57,8 @@ describe('reportRowToCsvCells', () => {
     expect(cells[6]).toBe('8:00') // 所定内 = 510-30=480
     expect(cells[7]).toBe('0:30') // 所定外
     expect(cells[8]).toBe('0:30') // 法定外残業
+    expect(cells[9]).toBe('0:00') // 深夜（日中勤務なので0）
+    expect(cells[10]).toBe('0:00') // 深夜残業（内数・0）
     expect(cells[12]).toBe('時給')
     expect(cells[13]).toBe('1200')
     // 概算: 8h×1200 + 0.5h×1200×1.25 = 9600 + 750 = 10350

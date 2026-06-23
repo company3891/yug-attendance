@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   calcLaborMinutes,
   calcMidnightMinutes,
+  calcMidnightOvertimeMinutes,
   calcWorkTimeBreakdown,
   resolveWorkDate,
   type WorkTimeInput,
@@ -292,5 +293,53 @@ describe('calcWorkTimeBreakdown - anomaly detection', () => {
     expect(r.hasAnomaly).toBe(true)
     expect(r.anomalyCodes).toContain('break_exceeds_work')
     expect(r.anomalyCodes).toContain('duration_over_24h')
+  })
+})
+
+// -------------------------------------------------------------------------
+// F. calcMidnightOvertimeMinutes 深夜残業（深夜 ∩ 法定外残業、深夜の内数）
+// -------------------------------------------------------------------------
+describe('F. calcMidnightOvertimeMinutes', () => {
+  it('F1: 残業なし(ちょうど8h) → 0', () => {
+    // 18:00→翌03:00 休60 = net 480 (overtime 0)
+    expect(
+      calcMidnightOvertimeMinutes(jst('2026-05-23T18:00'), jst('2026-05-24T03:00'), 60),
+    ).toBe(0)
+  })
+
+  it('F2: 16:00→翌03:00 休60 = net600, 残業120 → 末尾[01:00,03:00]は全て深夜 → 120', () => {
+    const v = calcMidnightOvertimeMinutes(jst('2026-05-23T16:00'), jst('2026-05-24T03:00'), 60)
+    expect(v).toBe(120)
+  })
+
+  it('F3: 09:00→23:00 休60 = net780, 残業300 → 末尾[18:00,23:00]の深夜は22-23の60分のみ', () => {
+    const v = calcMidnightOvertimeMinutes(jst('2026-05-23T09:00'), jst('2026-05-23T23:00'), 60)
+    expect(v).toBe(60)
+  })
+
+  it('F4: 深夜なし日中残業（08:00→20:00 休60 = net660, 残業180、深夜帯ゼロ）→ 0', () => {
+    const v = calcMidnightOvertimeMinutes(jst('2026-05-23T08:00'), jst('2026-05-23T20:00'), 60)
+    expect(v).toBe(0)
+  })
+
+  it('F5: 深夜残業は深夜総量の内数（≤ midnightMinutes）', () => {
+    const clockIn = jst('2026-05-23T16:00')
+    const clockOut = jst('2026-05-24T03:00')
+    const breakMin = 60
+    const breakdown = calcWorkTimeBreakdown({
+      clockIn,
+      clockOut,
+      breakMinutes: breakMin,
+      scheduledMinutes: 480,
+      dayType: 'workday',
+    })
+    const moT = calcMidnightOvertimeMinutes(clockIn, clockOut, breakMin)
+    expect(moT).toBeLessThanOrEqual(breakdown.midnightMinutes)
+  })
+
+  it('F6: clockOut <= clockIn → 0', () => {
+    expect(
+      calcMidnightOvertimeMinutes(jst('2026-05-23T18:00'), jst('2026-05-23T18:00'), 0),
+    ).toBe(0)
   })
 })
