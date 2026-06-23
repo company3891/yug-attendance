@@ -1,14 +1,20 @@
 import { notFound } from 'next/navigation'
-import { requireRole } from '@/lib/auth/roles'
+import { requireRole, roleSatisfies } from '@/lib/auth/roles'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { AppNav } from '@/components/app-nav'
 import type { AppUser } from '@/lib/database.types'
 import type { UserActionState } from '@/lib/schemas/user'
 import { UserForm } from '../user-form'
 import { PasswordForm } from '../password-form'
-import { changePasswordAction, updateUserAction } from '../actions'
+import {
+  changePasswordAction,
+  updateUserAction,
+  updateUserWageSettingsAction,
+  addUserWageHistoryAction,
+} from '../actions'
 import { UserEditTabs } from './user-edit-tabs'
 import { AuthSettingsClient } from '../auth-settings-client'
+import { WageSettingsClient, type WageHistoryRow } from './wage-settings-client'
 
 export default async function EditUserPage({ params }: { params: { id: string } }) {
   const me = await requireRole('admin')
@@ -23,11 +29,18 @@ export default async function EditUserPage({ params }: { params: { id: string } 
   const { data: authData } = await admin.auth.admin.getUserById(params.id)
   const email = authData.user?.email ?? ''
 
-  const [{ data: companies }, { data: stores }, { data: departments }] = await Promise.all([
-    supabase.from('companies').select('id, name'),
-    supabase.from('stores').select('id, name, company_id'),
-    supabase.from('departments').select('id, name, store_id'),
-  ])
+  const [{ data: companies }, { data: stores }, { data: departments }, { data: wageHist }] =
+    await Promise.all([
+      supabase.from('companies').select('id, name'),
+      supabase.from('stores').select('id, name, company_id'),
+      supabase.from('departments').select('id, name, store_id'),
+      admin
+        .from('user_wage_history')
+        .select('effective_from, unit_wage, job_description')
+        .eq('user_id', params.id),
+    ])
+
+  const canEditWage = roleSatisfies(me.role, 'store')
 
   const boundUpdate = updateUserAction.bind(null, params.id) as (
     fd: FormData,
@@ -83,6 +96,19 @@ export default async function EditUserPage({ params }: { params: { id: string } 
                 faceRegisteredAt={user.face_registered_at ?? null}
                 faceFailedCount={user.face_failed_count ?? 0}
               />
+            }
+            wageContent={
+              canEditWage ? (
+                <WageSettingsClient
+                  wageSettingsAction={updateUserWageSettingsAction.bind(null, params.id)}
+                  wageHistoryAction={addUserWageHistoryAction.bind(null, params.id)}
+                  currentWageType={
+                    (user.wage_type as 'hourly' | 'daily' | 'monthly' | null) ?? null
+                  }
+                  currentOverrideMinutes={user.daily_work_minutes ?? null}
+                  history={(wageHist ?? []) as WageHistoryRow[]}
+                />
+              ) : undefined
             }
           />
         </div>
