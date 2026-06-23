@@ -988,6 +988,131 @@ export type Database = {
         ]
 
 }
+      // -----------------------------------------------------------------
+      // ⚠️ Phase 5 一時手書き補完（migration 0008）。
+      //    本番 db push 後に `npm run db:types`（supabase gen types）で正規再生成し、
+      //    このブロックは自動上書きされる前提。手で延命しないこと。
+      // -----------------------------------------------------------------
+      work_rules: {
+        Row: {
+          id: string
+          scope: string
+          company_id: string
+          store_id: string | null
+          effective_from: string
+          scheduled_minutes: number
+          work_start: string | null
+          work_end: string | null
+          break_minutes: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          scope: string
+          company_id: string
+          store_id?: string | null
+          effective_from: string
+          scheduled_minutes?: number
+          work_start?: string | null
+          work_end?: string | null
+          break_minutes?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          scope?: string
+          company_id?: string
+          store_id?: string | null
+          effective_from?: string
+          scheduled_minutes?: number
+          work_start?: string | null
+          work_end?: string | null
+          break_minutes?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      holiday_settings: {
+        Row: {
+          id: string
+          scope: string
+          company_id: string
+          store_id: string | null
+          scheduled_holidays: number[]
+          legal_holiday: number
+          holiday_as: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          scope: string
+          company_id: string
+          store_id?: string | null
+          scheduled_holidays?: number[]
+          legal_holiday?: number
+          holiday_as?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          scope?: string
+          company_id?: string
+          store_id?: string | null
+          scheduled_holidays?: number[]
+          legal_holiday?: number
+          holiday_as?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      japan_holidays: {
+        Row: {
+          holiday_date: string
+          name: string
+        }
+        Insert: {
+          holiday_date: string
+          name: string
+        }
+        Update: {
+          holiday_date?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      user_wage_history: {
+        Row: {
+          id: string
+          user_id: string
+          effective_from: string
+          unit_wage: number
+          job_description: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          effective_from: string
+          unit_wage: number
+          job_description?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          effective_from?: string
+          unit_wage?: number
+          job_description?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
