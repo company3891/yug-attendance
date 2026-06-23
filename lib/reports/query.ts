@@ -17,7 +17,9 @@ type ReportSupabaseClient = ReturnType<typeof createAdminClient>
 export interface ReportFilter {
   year: number
   month: number
-  storeId: string | null // null = 全店（master のみ）
+  storeId: string | null // 単一事業所に絞る場合（選択時）
+  /** 可視スコープが複数店舗（会社スコープ）の場合の許可店舗群。storeId 未指定時に IN で絞る */
+  storeIds?: string[] | null
   userId: string | null
 }
 
@@ -76,7 +78,9 @@ export async function fetchReportRows(
     .gte('work_date', start)
     .lte('work_date', end)
 
+  // 事業所選択時は単一、未選択かつ会社スコープ時は許可店舗群（IN）で絞る
   if (filter.storeId) query = query.eq('store_id', filter.storeId)
+  else if (filter.storeIds) query = query.in('store_id', filter.storeIds.length ? filter.storeIds : ['00000000-0000-0000-0000-000000000000'])
   if (filter.userId) query = query.eq('user_id', filter.userId)
 
   const { data, error } = await query

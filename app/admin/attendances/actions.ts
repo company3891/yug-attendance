@@ -55,15 +55,24 @@ export async function updateAttendanceAction(
     break_minutes: number
   }
 
-  // --- 3. 店舗スコープ（master 以外は自店舗のみ）---
+  // --- 3. スコープ検証（master=全社 / 会社=自社全店 / 事業所=自店舗のみ）---
+  // 対象打刻の店舗が属する会社IDを取得（権限判定 + 再計算の両方で使う）
+  const { data: store } = await admin
+    .from('stores')
+    .select('company_id')
+    .eq('id', beforeRow.store_id)
+    .single()
+  const targetCompanyId = (store as { company_id: string } | null)?.company_id ?? null
   if (
     !canEditAttendance({
       actorRole: me.role,
+      actorCompanyId: me.company_id,
       actorStoreId: me.store_id,
+      targetCompanyId,
       targetStoreId: beforeRow.store_id,
     })
   ) {
-    return actionFail('他店舗の打刻は修正できません')
+    return actionFail('権限の範囲外の打刻は修正できません')
   }
 
   // --- 4. JST→UTC 変換 + 未来時刻禁止 ---
@@ -84,13 +93,8 @@ export async function updateAttendanceAction(
 
   // --- 6. 再計算（退勤が揃っている場合のみ）---
   // 所定・日種別は work_rules/holiday_settings 台帳から解決（Phase 5、打刻ルートと同一経路）
-  const { data: store } = await admin
-    .from('stores')
-    .select('company_id')
-    .eq('id', beforeRow.store_id)
-    .single()
   const { scheduledMinutes, dayType } = await resolveDayCalcSettings(admin, {
-    companyId: (store as { company_id: string } | null)?.company_id ?? '',
+    companyId: targetCompanyId ?? '',
     storeId: beforeRow.store_id,
     userId: beforeRow.user_id,
     workDate: beforeRow.work_date,

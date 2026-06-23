@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { AppNav } from '@/components/app-nav'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { canEditAttendance } from '@/lib/permissions/attendance'
+import { resolveVisibleScope, NO_MATCH_UUID } from '@/lib/permissions/scope'
 import { AttendanceTable, type AttendanceRow } from './attendance-table'
 
 interface SearchParams {
@@ -51,21 +52,29 @@ export default async function AdminAttendancesPage({
   const endDate = new Date(year, month, 0)
   const end = `${year}-${String(month).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`
 
-  // --- 店舗リスト（フィルタ用）: master は全店、それ以外は自店のみ ---
-  let storeQuery = supabase.from('stores').select('id, name').order('name')
-  if (me.role !== 'master') {
-    storeQuery = storeQuery.eq('id', me.store_id ?? '')
-  }
+  // --- 可視スコープ（master=全社 / 会社(store)=自社 / 事業所(admin)=自店舗 / それ以外=自分） ---
+  const scope = resolveVisibleScope(me)
+
+  // 事業所(店舗)候補 = 可視スコープ内の店舗（master=全店 / 会社=自社全店 / 事業所=自店のみ）
+  let storeQuery = supabase.from('stores').select('id, name, company_id').order('name')
+  if (scope.kind === 'company') storeQuery = storeQuery.eq('company_id', scope.companyId)
+  else if (scope.kind === 'store') storeQuery = storeQuery.eq('id', scope.storeId)
+  else if (scope.kind !== 'all') storeQuery = storeQuery.eq('id', NO_MATCH_UUID)
   const { data: storeRows } = await storeQuery
-  const stores = (storeRows ?? []) as { id: string; name: string }[]
+  const stores = (storeRows ?? []) as { id: string; name: string; company_id: string }[]
+  const storeIds = stores.map((s) => s.id)
+  const storeCompanyMap = new Map(stores.map((s) => [s.id, s.company_id]))
 
-  // 非 master は自店固定。master はフィルタ指定があればそれを使う。
-  const effectiveStoreId =
-    me.role === 'master' ? (searchParams.store_id || '') : (me.store_id ?? '')
+  // 選択された事業所（スコープ内のみ有効。範囲外指定は無視）
+  const selectedStoreId =
+    searchParams.store_id && storeIds.includes(searchParams.store_id) ? searchParams.store_id : ''
 
-  // --- 従業員リスト（フィルタ用）: 対象店舗に絞る ---
+  // --- 従業員リスト（フィルタ用）: 可視スコープ + 選択事業所で絞る ---
   let userQuery = supabase.from('users').select('id, name').order('name')
-  if (effectiveStoreId) userQuery = userQuery.eq('store_id', effectiveStoreId)
+  if (selectedStoreId) userQuery = userQuery.eq('store_id', selectedStoreId)
+  else if (scope.kind === 'company') userQuery = userQuery.eq('company_id', scope.companyId)
+  else if (scope.kind === 'store') userQuery = userQuery.eq('store_id', scope.storeId)
+  else if (scope.kind !== 'all') userQuery = userQuery.eq('id', NO_MATCH_UUID)
   const { data: userRows } = await userQuery
   const users = (userRows ?? []) as { id: string; name: string }[]
 
@@ -81,7 +90,11 @@ export default async function AdminAttendancesPage({
     .lte('work_date', end)
     .order('work_date', { ascending: true })
 
-  if (effectiveStoreId) attQuery = attQuery.eq('store_id', effectiveStoreId)
+  // 事業所選択時はその店舗、未選択時は可視スコープ全体で絞る
+  if (selectedStoreId) attQuery = attQuery.eq('store_id', selectedStoreId)
+  else if (scope.kind === 'company') attQuery = attQuery.in('store_id', storeIds.length ? storeIds : [NO_MATCH_UUID])
+  else if (scope.kind === 'store') attQuery = attQuery.eq('store_id', scope.storeId)
+  else if (scope.kind !== 'all') attQuery = attQuery.eq('store_id', NO_MATCH_UUID)
   if (searchParams.user_id) attQuery = attQuery.eq('user_id', searchParams.user_id)
 
   const { data: attRows, error } = await attQuery
@@ -100,10 +113,15 @@ export default async function AdminAttendancesPage({
     anomalyCodes: r.anomaly_codes ?? [],
     canEdit: canEditAttendance({
       actorRole: me.role,
+      actorCompanyId: me.company_id,
       actorStoreId: me.store_id,
+      targetCompanyId: storeCompanyMap.get(r.store_id) ?? null,
       targetStoreId: r.store_id,
     }),
   }))
+
+  // 事業所ドロップダウンを出すか（自分のみ/該当なし以外）
+  const showStoreFilter = scope.kind === 'all' || scope.kind === 'company' || scope.kind === 'store'
 
   // 前月・翌月リンク
   const prevDate = new Date(year, month - 2, 1)
@@ -112,7 +130,7 @@ export default async function AdminAttendancesPage({
     const p = new URLSearchParams()
     p.set('year', String(y))
     p.set('month', String(m))
-    if (me.role === 'master' && effectiveStoreId) p.set('store_id', effectiveStoreId)
+    if (selectedStoreId) p.set('store_id', selectedStoreId)
     if (searchParams.user_id) p.set('user_id', searchParams.user_id)
     return `/admin/attendances?${p.toString()}`
   }
@@ -156,15 +174,15 @@ export default async function AdminAttendancesPage({
                 </select>
               </div>
 
-              {me.role === 'master' && (
+              {showStoreFilter && (
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">店舗</label>
+                  <label className="text-xs text-muted-foreground">事業所</label>
                   <select
                     name="store_id"
-                    defaultValue={effectiveStoreId}
+                    defaultValue={selectedStoreId}
                     className="w-full rounded-md border bg-white px-3 py-2 text-sm"
                   >
-                    <option value="">全店舗</option>
+                    <option value="">すべて（見える範囲）</option>
                     {stores.map((s) => (
                       <option key={s.id} value={s.id}>
                         {s.name}

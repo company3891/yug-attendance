@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { QrDisplay } from '@/components/qr/qr-display'
 import { generateQrToken } from '@/lib/qr/generator'
 import { isQrUpdateRecommended } from '@/lib/qr/verifier'
+import { resolveVisibleScope, NO_MATCH_UUID } from '@/lib/permissions/scope'
 import { PrintButton, QrActionsClient } from './qr-actions-client'
 
 type UserRow = {
@@ -26,14 +27,17 @@ export default async function UsersQrPage() {
   const supabase = createClient()
   const admin = createAdminClient()
 
-  // ログインユーザーの会社配下の従業員のみ
+  // 可視スコープ統一: master=全社 / 会社(store)=自社 / 事業所(admin)=自店舗配下 / それ以外=自分のみ
   let usersQ = supabase
     .from('users')
     .select('id, employee_no, name, is_active, store_id, qr_version, qr_issued_at, qr_revoked_at')
     .order('is_active', { ascending: false })
     .order('name', { ascending: true })
-  if (me.company_id) usersQ = usersQ.eq('company_id', me.company_id)
-  if (me.role === 'admin' && me.department_id) usersQ = usersQ.eq('department_id', me.department_id)
+  const scope = resolveVisibleScope(me)
+  if (scope.kind === 'company') usersQ = usersQ.eq('company_id', scope.companyId)
+  else if (scope.kind === 'store') usersQ = usersQ.eq('store_id', scope.storeId)
+  else if (scope.kind === 'self') usersQ = usersQ.eq('id', scope.userId)
+  else if (scope.kind === 'none') usersQ = usersQ.eq('id', NO_MATCH_UUID)
   const { data: usersRaw } = await usersQ
   const users = (usersRaw ?? []) as unknown as UserRow[]
 

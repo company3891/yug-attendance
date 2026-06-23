@@ -2,6 +2,7 @@ import { requireRole } from '@/lib/auth/roles'
 import { createClient } from '@/lib/supabase/server'
 import { AppNav } from '@/components/app-nav'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { resolveVisibleScope, NO_MATCH_UUID } from '@/lib/permissions/scope'
 
 export default async function AdminReportsPage() {
   const me = await requireRole('admin')
@@ -11,17 +12,26 @@ export default async function AdminReportsPage() {
   const year = now.getFullYear()
   const month = now.getMonth() + 1
 
-  // 店舗リスト（master は全店、それ以外は自店のみ）
+  // 可視スコープ統一: master=全店 / 会社(store)=自社全店 / 事業所(admin)=自店のみ
+  const scope = resolveVisibleScope(me)
+
+  // 事業所(店舗)候補
   let storeQuery = supabase.from('stores').select('id, name').order('name')
-  if (me.role !== 'master') storeQuery = storeQuery.eq('id', me.store_id ?? '')
+  if (scope.kind === 'company') storeQuery = storeQuery.eq('company_id', scope.companyId)
+  else if (scope.kind === 'store') storeQuery = storeQuery.eq('id', scope.storeId)
+  else if (scope.kind !== 'all') storeQuery = storeQuery.eq('id', NO_MATCH_UUID)
   const { data: storeRows } = await storeQuery
   const stores = (storeRows ?? []) as { id: string; name: string }[]
 
-  // 従業員リスト（フィルタ用）。master は全員、それ以外は自店のみ
+  // 従業員リスト（フィルタ用）: 可視スコープで絞る
   let userQuery = supabase.from('users').select('id, name').order('name')
-  if (me.role !== 'master') userQuery = userQuery.eq('store_id', me.store_id ?? '')
+  if (scope.kind === 'company') userQuery = userQuery.eq('company_id', scope.companyId)
+  else if (scope.kind === 'store') userQuery = userQuery.eq('store_id', scope.storeId)
+  else if (scope.kind !== 'all') userQuery = userQuery.eq('id', NO_MATCH_UUID)
   const { data: userRows } = await userQuery
   const users = (userRows ?? []) as { id: string; name: string }[]
+
+  const showStoreFilter = scope.kind === 'all' || scope.kind === 'company' || scope.kind === 'store'
 
   const inputCls = 'w-full rounded-md border px-3 py-2 text-sm'
   const selectCls = 'w-full rounded-md border bg-white px-3 py-2 text-sm'
@@ -73,13 +83,13 @@ export default async function AdminReportsPage() {
                   </select>
                 </div>
 
-                {me.role === 'master' && (
+                {showStoreFilter && (
                   <div className="space-y-1">
                     <label htmlFor="store_id" className="text-sm font-medium">
-                      店舗
+                      事業所
                     </label>
                     <select id="store_id" name="store_id" defaultValue="" className={selectCls}>
-                      <option value="">全店舗</option>
+                      <option value="">すべて（見える範囲）</option>
                       {stores.map((s) => (
                         <option key={s.id} value={s.id}>
                           {s.name}
@@ -128,9 +138,14 @@ export default async function AdminReportsPage() {
                 </div>
               </div>
 
-              {me.role !== 'master' && (
+              {scope.kind === 'company' && (
                 <p className="text-xs text-muted-foreground">
-                  ※ 出力範囲は自店舗に限定されます。
+                  ※ 出力範囲は自社（全事業所）に限定されます。事業所を選ぶと絞り込めます。
+                </p>
+              )}
+              {scope.kind === 'store' && (
+                <p className="text-xs text-muted-foreground">
+                  ※ 出力範囲は自分の事業所に限定されます。
                 </p>
               )}
 

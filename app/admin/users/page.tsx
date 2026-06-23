@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { AppUser } from '@/lib/database.types'
 import { UserCard } from '@/components/users/user-card'
+import { resolveVisibleScope, NO_MATCH_UUID } from '@/lib/permissions/scope'
 import { activateUserAction, deactivateUserAction } from './actions'
 
 type UserRow = Pick<
@@ -39,12 +40,12 @@ export default async function UsersListPage() {
     .order('is_active', { ascending: false })
     .order('role', { ascending: false })
 
-  if (me.role !== 'master' && me.company_id) {
-    query = query.eq('company_id', me.company_id)
-  }
-  if (me.role === 'admin' && me.department_id) {
-    query = query.eq('department_id', me.department_id)
-  }
+  // 可視スコープ統一: master=全社 / 会社(store)=自社 / 事業所(admin)=自店舗配下 / それ以外=自分のみ
+  const scope = resolveVisibleScope(me)
+  if (scope.kind === 'company') query = query.eq('company_id', scope.companyId)
+  else if (scope.kind === 'store') query = query.eq('store_id', scope.storeId)
+  else if (scope.kind === 'self') query = query.eq('id', scope.userId)
+  else if (scope.kind === 'none') query = query.eq('id', NO_MATCH_UUID)
 
   const { data: rows, error } = await query
   const users = (rows ?? []) as UserRow[]
