@@ -344,8 +344,10 @@ vercel --prod
 - [x] Phase 2: QR打刻 + 労働時間計算 + 自分の勤怠画面（純関数100%テスト、API構造化エラー、タブレット最適化、QR管理/印刷/失効）
 - [x] Phase 3: 顔認証打刻（face-api.js統合、ボタン打刻、音声読み上げ、管理者認証設定、個人設定）（タグ: v0.3.0-phase3-complete）
 - [x] Phase 4: 打刻修正（一覧画面+編集+再計算+監査ログ）/ レポート出力（全項目1種 CSV/Excel・人別シート・概算支給額）（タグ: v0.4.0-phase4-complete）
-- [ ] Phase 5: 有給管理 + Slack/LINE通知Cron
-- [ ] Phase 6: 年間カレンダー（自動生成・編集・所定時間計算）
+- [x] Phase 5: 設定・マスタの土台（work_rules/holiday_settings/japan_holidays/user_wage_history、発効日つき履歴、dayType・所定を台帳由来に配線、設定UI）（タグ: v0.5.0-phase5-master-data）※コード完成・**DB未適用**（db push 後に有効化。詳細は docs/phase5-master-data.md）
+  - ~~当初 Phase 5（有給管理 + Slack/LINE通知Cron）~~ → 設定土台を優先し後ろ倒し
+- [ ] Phase 6: 有給管理 + Slack/LINE通知Cron（当初 Phase 5 を繰り下げ）
+- [ ] Phase 6': 年間カレンダー（自動生成・編集・所定時間計算）※旧 Phase 6
 - [ ] Phase 7: シフトパターン管理 + シフトカレンダー
 - [ ] Phase 8: シフト希望提出 + 交代申請 + 人件費シミュレーション
 - [ ] Phase 9: シフトAI自動生成（Claude API連携）
