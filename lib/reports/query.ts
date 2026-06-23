@@ -66,8 +66,10 @@ export async function fetchReportRows(
   let query = supabase
     .from('attendances')
     .select(
+      // attendances→users は user_id / modified_by の2本のFKがあり曖昧（PGRST201）。
+      // レポートは打刻者本人を出すので user_id のFK(attendances_user_id_fkey)を制約名で明示。
       'user_id, store_id, work_date, clock_in, clock_out, break_minutes, ' +
-        'users(name, wage_type, hourly_wage, monthly_wage, daily_wage), ' +
+        'users!attendances_user_id_fkey(name, wage_type, hourly_wage, monthly_wage, daily_wage), ' +
         'stores(name), ' +
         'work_time_calculations(labor_minutes, scheduled_minutes, over_scheduled_minutes, over_legal_minutes, midnight_minutes, midnight_over_minutes, holiday_minutes, holiday_over_minutes)',
     )

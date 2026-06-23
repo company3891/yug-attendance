@@ -73,7 +73,9 @@ export default async function AdminAttendancesPage({
   let attQuery = supabase
     .from('attendances')
     .select(
-      'id, user_id, store_id, work_date, clock_in, clock_out, break_minutes, has_anomaly, anomaly_codes, users(name), stores(name), work_time_calculations(labor_minutes)',
+      // attendances→users は user_id / modified_by の2本のFKがあり曖昧（PGRST201）。
+      // 打刻者本人を表示するので user_id のFK(attendances_user_id_fkey)を制約名で明示。
+      'id, user_id, store_id, work_date, clock_in, clock_out, break_minutes, has_anomaly, anomaly_codes, users!attendances_user_id_fkey(name), stores(name), work_time_calculations(labor_minutes)',
     )
     .gte('work_date', start)
     .lte('work_date', end)
