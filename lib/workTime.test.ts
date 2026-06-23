@@ -342,4 +342,30 @@ describe('F. calcMidnightOvertimeMinutes', () => {
       calcMidnightOvertimeMinutes(jst('2026-05-23T18:00'), jst('2026-05-23T18:00'), 0),
     ).toBe(0)
   })
+
+  // --- 夜勤・日跨ぎのリグレッション固定（深夜営業クライアント展開時の保険）---
+  it('F7: 夜勤 22:00→翌07:00 休60 = net480（残業0）→ 深夜残業 0', () => {
+    // 深夜帯は前半(22:00-05:00)に集中。この勤務はネット8hちょうどで残業自体が無いため 0。
+    const v = calcMidnightOvertimeMinutes(jst('2026-05-23T22:00'), jst('2026-05-24T07:00'), 60)
+    expect(v).toBe(0)
+  })
+
+  it('F8: 夜勤+残業あり 22:00→翌09:00 休60 = net600（残業120は[07:00,09:00]で深夜帯外）→ 深夜残業 0 / 深夜は>0', () => {
+    // 残業は勤務末尾(早朝)に発生し、深夜帯(22-5時)は前半なので重複ゼロ。
+    // 「深夜も残業もあるが両者が重ならない」ことを 0 で固定（残業0だから0、ではない点が F7 との違い）。
+    const clockIn = jst('2026-05-23T22:00')
+    const clockOut = jst('2026-05-24T09:00')
+    const v = calcMidnightOvertimeMinutes(clockIn, clockOut, 60)
+    expect(v).toBe(0)
+
+    const breakdown = calcWorkTimeBreakdown({
+      clockIn,
+      clockOut,
+      breakMinutes: 60,
+      scheduledMinutes: 480,
+      dayType: 'workday',
+    })
+    expect(breakdown.midnightMinutes).toBeGreaterThan(0) // 深夜自体は存在する
+    expect(breakdown.overLegalMinutes).toBeGreaterThan(0) // 残業も存在する
+  })
 })

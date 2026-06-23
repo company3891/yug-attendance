@@ -83,6 +83,7 @@ export async function fetchReportRows(
   const rows: ReportRow[] = (data as unknown as JoinedRow[]).map((r) => {
     const u = one(r.users)
     return buildReportRow({
+      userId: r.user_id,
       userName: u?.name ?? '(不明)',
       storeName: one(r.stores)?.name ?? '(不明)',
       workDate: r.work_date,

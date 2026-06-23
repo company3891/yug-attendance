@@ -13,6 +13,7 @@ import { getCurrentUser, roleSatisfies } from '@/lib/auth/roles'
 import { reportQuerySchema } from '@/lib/schemas/report'
 import { fetchReportRows } from '@/lib/reports/query'
 import { buildCsv } from '@/lib/reports/csv'
+import { buildReportWorkbook } from '@/lib/reports/excel'
 import { contentDisposition } from '@/lib/reports/period'
 
 export async function GET(req: NextRequest) {
@@ -53,12 +54,22 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, message: `集計エラー: ${msg}` }, { status: 500 })
   }
 
-  // --- Excel（Day3 で実装予定）---
+  // --- Excel（見本準拠・人別シート）---
   if (q.format === 'excel') {
-    return NextResponse.json(
-      { ok: false, message: 'Excel出力は準備中です（Day3）' },
-      { status: 501 },
-    )
+    const buffer = await buildReportWorkbook(rows, {
+      year: q.year,
+      month: q.month,
+      clientName: q.client_name ?? '',
+    })
+    return new NextResponse(buffer as unknown as BodyInit, {
+      status: 200,
+      headers: {
+        'Content-Type':
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Content-Disposition': contentDisposition(q.year, q.month, 'xlsx'),
+        'Cache-Control': 'no-store',
+      },
+    })
   }
 
   // --- CSV（Day2）---

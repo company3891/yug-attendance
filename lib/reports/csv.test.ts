@@ -3,6 +3,7 @@ import { buildCsv, csvEscape, reportRowToCsvCells, CSV_HEADERS } from './csv'
 import { buildReportRow, type ReportRowInput } from './build'
 
 const input: ReportRowInput = {
+  userId: 'u-0001',
   userName: '山田太郎',
   storeName: '本店',
   workDate: '2026-06-01',

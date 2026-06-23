@@ -47,6 +47,7 @@ export interface WtcMinutes {
 }
 
 export interface ReportRowInput {
+  userId: string
   userName: string
   storeName: string
   workDate: string // YYYY-MM-DD
@@ -61,6 +62,7 @@ export interface ReportRowInput {
 }
 
 export interface ReportRow {
+  userId: string
   userName: string
   storeName: string
   workDate: string
@@ -153,6 +155,7 @@ export function buildReportRow(input: ReportRowInput): ReportRow {
   })
 
   return {
+    userId: input.userId,
     userName: input.userName,
     storeName: input.storeName,
     workDate: input.workDate,
