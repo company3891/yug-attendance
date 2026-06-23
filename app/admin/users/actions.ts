@@ -17,6 +17,13 @@ import {
   userWageSettingsUpdateSchema,
 } from '@/lib/schemas/settings'
 import { latestWage, type WageHistoryRow } from '@/lib/settings/wage'
+import {
+  authorizeUserAssignment,
+  canManageExistingUser,
+  type ActorScope,
+  type AssignmentLookups,
+  type RequestedAssignment,
+} from '@/lib/permissions/userManagement'
 
 type UserState = ActionState<
   | 'name' | 'name_kana' | 'employee_no' | 'role' | 'company_id' | 'store_id'
@@ -47,15 +54,82 @@ function pickInsertable(parsed: UserBase): Omit<Inserts<'users'>, 'id'> {
 }
 
 // ---------------------------------------------------------------------------
+// 権限防御（作成・編集共通のヘルパ）
+// ---------------------------------------------------------------------------
+
+/** 操作者(me)を ActorScope に変換 */
+function actorScopeOf(me: {
+  role: ActorScope['role']
+  company_id: string | null
+  store_id: string | null
+  department_id: string | null
+}): ActorScope {
+  return { role: me.role, companyId: me.company_id, storeId: me.store_id, departmentId: me.department_id }
+}
+
+/** parsed の role/所属を RequestedAssignment に変換 */
+function toRequested(parsed: UserBase): RequestedAssignment {
+  return {
+    role: parsed.role,
+    companyId: parsed.company_id ?? null,
+    storeId: parsed.store_id ?? null,
+    departmentId: parsed.department_id ?? null,
+  }
+}
+
+/** store操作者向け: 指定店舗/部門が属する会社IDを引く（他社指定の検出用）。master/admin は不要 */
+async function resolveAssignmentLookups(
+  admin: ReturnType<typeof createAdminClient>,
+  actorRole: ActorScope['role'],
+  requested: RequestedAssignment,
+): Promise<AssignmentLookups> {
+  if (actorRole !== 'store') return {}
+  const lookups: AssignmentLookups = {}
+  if (requested.storeId) {
+    const { data } = await admin.from('stores').select('company_id').eq('id', requested.storeId).maybeSingle()
+    lookups.requestedStoreCompanyId = (data as { company_id: string } | null)?.company_id ?? null
+  }
+  if (requested.departmentId) {
+    const { data: dept } = await admin
+      .from('departments')
+      .select('store_id')
+      .eq('id', requested.departmentId)
+      .maybeSingle()
+    const storeId = (dept as { store_id: string } | null)?.store_id ?? null
+    if (storeId) {
+      const { data: st } = await admin.from('stores').select('company_id').eq('id', storeId).maybeSingle()
+      lookups.requestedDepartmentCompanyId = (st as { company_id: string } | null)?.company_id ?? null
+    } else {
+      lookups.requestedDepartmentCompanyId = null
+    }
+  }
+  return lookups
+}
+
+/** AssignmentDecision の失敗を UserState に変換 */
+function denyToState(
+  decision: Extract<ReturnType<typeof authorizeUserAssignment>, { ok: false }>,
+): UserState {
+  if (decision.field === 'form') return actionFail(decision.message)
+  return { ok: false, fieldErrors: { [decision.field]: [decision.message] } }
+}
+
+// ---------------------------------------------------------------------------
 // 新規作成
 // ---------------------------------------------------------------------------
 export async function createUserAction(formData: FormData): Promise<UserState> {
-  await requireRole('admin')
+  const me = await requireRole('admin')
 
   const parsed = parseFormData(userCreateSchema, formData)
   if (!parsed.ok) return { ok: false, fieldErrors: parsed.fieldErrors }
 
   const admin = createAdminClient()
+
+  // 0) サーバー側 権限防御: role上限 + 所属スコープ強制（service role経由でも効く）
+  const requested = toRequested(parsed.data)
+  const lookups = await resolveAssignmentLookups(admin, me.role, requested)
+  const decision = authorizeUserAssignment({ actor: actorScopeOf(me), requested, lookups })
+  if (!decision.ok) return denyToState(decision)
 
   // 1) Auth ユーザー作成
   const { data: authData, error: authError } = await admin.auth.admin.createUser({
@@ -67,10 +141,17 @@ export async function createUserAction(formData: FormData): Promise<UserState> {
     return actionFail(`Auth作成エラー: ${authError?.message ?? '不明'}`)
   }
 
-  // 2) public.users に INSERT（失敗時は auth をロールバック削除）
+  // 2) public.users に INSERT（role/所属は decision の正規化値で上書き）
   // NOTE: @supabase/ssr 0.5 と postgrest-js 2.106 の型推論が噛み合わないため
   // ランタイムでは Database 型で守りつつ、コンパイル時は never cast で突破する。
-  const insertRow: Inserts<'users'> = { id: authData.user.id, ...pickInsertable(parsed.data) }
+  const insertRow: Inserts<'users'> = {
+    id: authData.user.id,
+    ...pickInsertable(parsed.data),
+    role: decision.role,
+    company_id: decision.companyId,
+    store_id: decision.storeId,
+    department_id: decision.departmentId,
+  }
   const { error: insertError } = await admin.from('users').insert(insertRow as never)
   if (insertError) {
     await admin.auth.admin.deleteUser(authData.user.id)
@@ -88,15 +169,53 @@ export async function updateUserAction(
   userId: string,
   formData: FormData,
 ): Promise<UserState> {
-  await requireRole('admin')
+  const me = await requireRole('admin')
 
   const parsed = parseFormData(userUpdateSchema, formData)
   if (!parsed.ok) return { ok: false, fieldErrors: parsed.fieldErrors }
 
-  const supabase = createClient()
-  const { error } = await supabase
+  const admin = createAdminClient()
+
+  // 0a) 既存ユーザーが操作者の管轄内・下位か（同格以上/他社・他事業所の編集を拒否）
+  const { data: existing } = await admin
     .from('users')
-    .update(pickInsertable(parsed.data) as never)
+    .select('role, company_id, store_id, department_id')
+    .eq('id', userId)
+    .maybeSingle()
+  if (!existing) return actionFail('対象の従業員が見つかりません')
+  const ex = existing as {
+    role: ActorScope['role']
+    company_id: string | null
+    store_id: string | null
+    department_id: string | null
+  }
+  const manage = canManageExistingUser({
+    actor: actorScopeOf(me),
+    existing: {
+      role: ex.role,
+      companyId: ex.company_id,
+      storeId: ex.store_id,
+      departmentId: ex.department_id,
+    },
+  })
+  if (!manage.ok) return actionFail(manage.message)
+
+  // 0b) 変更後の role上限 + 所属スコープ強制（昇格・他社/他事業所への付け替えを拒否）
+  const requested = toRequested(parsed.data)
+  const lookups = await resolveAssignmentLookups(admin, me.role, requested)
+  const decision = authorizeUserAssignment({ actor: actorScopeOf(me), requested, lookups })
+  if (!decision.ok) return denyToState(decision)
+
+  // service role 経由で正規化値を UPDATE（RLSバイパス経路でも防御が効く）
+  const { error } = await admin
+    .from('users')
+    .update({
+      ...pickInsertable(parsed.data),
+      role: decision.role,
+      company_id: decision.companyId,
+      store_id: decision.storeId,
+      department_id: decision.departmentId,
+    } as never)
     .eq('id', userId)
   if (error) return actionFail(error.message)
 
