@@ -21,10 +21,11 @@ type UserRow = Pick<
   | 'department_id'
 >
 
+// 権限の表示ラベル（内部role名は不変。store=会社 / admin=事業所。docs/role-labels.md 参照）
 const ROLE_LABEL: Record<string, string> = {
   master: 'マスター',
-  store: '店舗',
-  admin: '管理者',
+  store: '会社',
+  admin: '事業所',
   employee: '従業員',
 }
 

@@ -2,10 +2,11 @@ import Link from 'next/link'
 import type { AppUser, UserRole } from '@/lib/database.types'
 import { cn } from '@/lib/utils'
 
+// 権限の表示ラベル（内部role名は不変。store=会社 / admin=事業所。docs/role-labels.md 参照）
 const ROLE_LABEL: Record<UserRole, string> = {
   master: 'マスター',
-  store: '店舗管理',
-  admin: '部門管理',
+  store: '会社',
+  admin: '事業所',
   employee: '従業員',
 }
 

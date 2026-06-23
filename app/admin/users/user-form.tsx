@@ -148,11 +148,12 @@ export function UserForm({
         <div className="space-y-2">
           <Label htmlFor="role">権限レベル *</Label>
           <Select id="role" name="role" required defaultValue={defaults?.role ?? 'employee'}>
+            {/* 表示ラベルのみ（内部値は store/admin のまま）。store=会社 / admin=事業所 */}
             {currentUserRole === 'master' && <option value="master">マスター</option>}
             {(currentUserRole === 'master' || currentUserRole === 'store') && (
-              <option value="store">店舗管理者</option>
+              <option value="store">会社</option>
             )}
-            <option value="admin">部門管理者</option>
+            <option value="admin">事業所</option>
             <option value="employee">従業員</option>
           </Select>
           <ErrorMsg errors={fieldErrors.role} />

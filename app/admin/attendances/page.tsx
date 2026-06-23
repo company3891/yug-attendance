@@ -124,7 +124,7 @@ export default async function AdminAttendancesPage({
         <div className="mb-6">
           <h1 className="text-2xl font-semibold text-tiffany-700">打刻一覧</h1>
           <p className="text-sm text-muted-foreground">
-            打刻の確認・修正を行います（master/店舗管理/部門管理）。
+            打刻の確認・修正を行います（マスター/会社/事業所）。
           </p>
         </div>
 
