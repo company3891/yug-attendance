@@ -22,7 +22,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/admin/attendances', label: '打刻一覧',        icon: '📋', requires: 'admin' },
   { href: '/admin/shifts',      label: 'シフト管理',     icon: '📅', requires: 'store' },
   { href: '/admin/calendar',    label: '年間カレンダー', icon: '🗓️', requires: 'store' },
-  { href: '/admin/reports',     label: 'レポート',        icon: '📊', requires: 'store' },
+  { href: '/admin/reports',     label: 'レポート',        icon: '📊', requires: 'admin' },
   { href: '/master/companies',  label: '会社管理',        icon: '🏢', requires: 'master' },
   { href: '/master/stores',     label: '店舗管理',        icon: '🏬', requires: 'master' },
 ]
