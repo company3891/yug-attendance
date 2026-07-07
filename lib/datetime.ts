@@ -122,6 +122,19 @@ export function isWeekend(workDate: string): boolean {
   return wd === 0 || wd === 6
 }
 
+/** work_date("YYYY-MM-DD") を "M/D" 形式に整形（出勤簿の日付列用・曜日は別列） */
+export function formatMonthDay(workDate: string): string {
+  const m = workDate.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!m) return workDate
+  return `${Number(m[2])}/${Number(m[3])}`
+}
+
+/** work_date("YYYY-MM-DD") の曜日ラベル（"日"〜"土"）。JST 正午で安定判定 */
+export function weekdayLabel(workDate: string): string {
+  const wd = jstParts(`${workDate}T12:00:00+09:00`).weekday
+  return WEEKDAY_JA[wd] ?? ''
+}
+
 /** 分 → "H:MM"（労働時間表示用）。0 や null は "0:00" */
 export function minutesToHourMinute(min: number | null | undefined): string {
   const v = Math.max(0, Math.round(min ?? 0))

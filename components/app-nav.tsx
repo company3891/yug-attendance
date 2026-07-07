@@ -21,6 +21,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/admin/users',       label: '従業員管理',     icon: '👥', requires: 'admin' },
   { href: '/admin/users/qr',    label: 'QRコード管理',   icon: '🪪', requires: 'admin' },
   { href: '/admin/attendances', label: '打刻一覧',        icon: '📋', requires: 'admin' },
+  { href: '/admin/attendance-book', label: '出勤簿',      icon: '📖', requires: 'admin' },
   { href: '/admin/shifts',      label: 'シフト管理',     icon: '📅', requires: 'store' },
   { href: '/admin/calendar',    label: '年間カレンダー', icon: '🗓️', requires: 'store' },
   { href: '/admin/reports',     label: 'レポート',        icon: '📊', requires: 'admin' },
