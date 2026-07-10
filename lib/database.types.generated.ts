@@ -1,3 +1,4 @@
+
 export type Json =
   | string
   | number
@@ -11,6 +12,31 @@ export type Database = {
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.5"
+  }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
@@ -360,6 +386,72 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      holiday_settings: {
+        Row: {
+          company_id: string
+          created_at: string
+          holiday_as: string
+          id: string
+          legal_holiday: number
+          scheduled_holidays: number[]
+          scope: string
+          store_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          holiday_as?: string
+          id?: string
+          legal_holiday?: number
+          scheduled_holidays?: number[]
+          scope: string
+          store_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          holiday_as?: string
+          id?: string
+          legal_holiday?: number
+          scheduled_holidays?: number[]
+          scope?: string
+          store_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "holiday_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "holiday_settings_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      japan_holidays: {
+        Row: {
+          holiday_date: string
+          name: string
+        }
+        Insert: {
+          holiday_date: string
+          name: string
+        }
+        Update: {
+          holiday_date?: string
+          name?: string
+        }
+        Relationships: []
       }
       notifications_log: {
         Row: {
@@ -758,6 +850,41 @@ export type Database = {
           },
         ]
       }
+      user_wage_history: {
+        Row: {
+          created_at: string
+          effective_from: string
+          id: string
+          job_description: string | null
+          unit_wage: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          effective_from: string
+          id?: string
+          job_description?: string | null
+          unit_wage: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          effective_from?: string
+          id?: string
+          job_description?: string | null
+          unit_wage?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_wage_history_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           allowances: Json | null
@@ -937,6 +1064,63 @@ export type Database = {
           },
         ]
       }
+      work_rules: {
+        Row: {
+          break_minutes: number
+          company_id: string
+          created_at: string
+          effective_from: string
+          id: string
+          scheduled_minutes: number
+          scope: string
+          store_id: string | null
+          updated_at: string
+          work_end: string | null
+          work_start: string | null
+        }
+        Insert: {
+          break_minutes?: number
+          company_id: string
+          created_at?: string
+          effective_from: string
+          id?: string
+          scheduled_minutes?: number
+          scope: string
+          store_id?: string | null
+          updated_at?: string
+          work_end?: string | null
+          work_start?: string | null
+        }
+        Update: {
+          break_minutes?: number
+          company_id?: string
+          created_at?: string
+          effective_from?: string
+          id?: string
+          scheduled_minutes?: number
+          scope?: string
+          store_id?: string | null
+          updated_at?: string
+          work_end?: string | null
+          work_start?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_rules_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_rules_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       work_time_calculations: {
         Row: {
           attendance_id: string
@@ -986,132 +1170,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-
-}
-      // -----------------------------------------------------------------
-      // ⚠️ Phase 5 一時手書き補完（migration 0008）。
-      //    本番 db push 後に `npm run db:types`（supabase gen types）で正規再生成し、
-      //    このブロックは自動上書きされる前提。手で延命しないこと。
-      // -----------------------------------------------------------------
-      work_rules: {
-        Row: {
-          id: string
-          scope: string
-          company_id: string
-          store_id: string | null
-          effective_from: string
-          scheduled_minutes: number
-          work_start: string | null
-          work_end: string | null
-          break_minutes: number
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          scope: string
-          company_id: string
-          store_id?: string | null
-          effective_from: string
-          scheduled_minutes?: number
-          work_start?: string | null
-          work_end?: string | null
-          break_minutes?: number
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          scope?: string
-          company_id?: string
-          store_id?: string | null
-          effective_from?: string
-          scheduled_minutes?: number
-          work_start?: string | null
-          work_end?: string | null
-          break_minutes?: number
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      holiday_settings: {
-        Row: {
-          id: string
-          scope: string
-          company_id: string
-          store_id: string | null
-          scheduled_holidays: number[]
-          legal_holiday: number
-          holiday_as: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          scope: string
-          company_id: string
-          store_id?: string | null
-          scheduled_holidays?: number[]
-          legal_holiday?: number
-          holiday_as?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          scope?: string
-          company_id?: string
-          store_id?: string | null
-          scheduled_holidays?: number[]
-          legal_holiday?: number
-          holiday_as?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      japan_holidays: {
-        Row: {
-          holiday_date: string
-          name: string
-        }
-        Insert: {
-          holiday_date: string
-          name: string
-        }
-        Update: {
-          holiday_date?: string
-          name?: string
-        }
-        Relationships: []
-      }
-      user_wage_history: {
-        Row: {
-          id: string
-          user_id: string
-          effective_from: string
-          unit_wage: number
-          job_description: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          effective_from: string
-          unit_wage: number
-          job_description?: string | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          effective_from?: string
-          unit_wage?: number
-          job_description?: string | null
-          created_at?: string
-        }
-        Relationships: []
       }
     }
     Views: {
@@ -1279,6 +1337,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       calendar_status: ["draft", "published"],
